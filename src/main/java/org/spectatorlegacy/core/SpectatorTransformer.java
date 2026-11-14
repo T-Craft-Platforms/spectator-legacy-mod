@@ -1,4 +1,4 @@
-package org.spectator164.core;
+package org.spectatorlegacy.core;
 
 import net.minecraft.launchwrapper.IClassTransformer;
 import org.objectweb.asm.ClassReader;
@@ -242,7 +242,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   mv.visitVarInsn(ALOAD, 1);
                   mv.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/SpectatorMod",
+                      "org/spectatorlegacy/SpectatorMod",
                       "changingMode",
                       "(Lnet/minecraft/item/ItemInWorldManager;Lnet/minecraft/world/EnumGameType;)V");
                 }
@@ -250,7 +250,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   mv.visitVarInsn(ALOAD, 1);
                   mv.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/ClientHooks",
+                      "org/spectatorlegacy/ClientHooks",
                       "setGameType",
                       "(Lnet/minecraft/world/EnumGameType;)V");
                 }
@@ -266,7 +266,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   mv.visitVarInsn(ALOAD, 1);
                   mv.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/SpectatorHooks",
+                      "org/spectatorlegacy/SpectatorHooks",
                       "blockEntityCollision",
                       "(Lnet/minecraft/entity/Entity;Lnet/minecraft/entity/Entity;)Z");
                   mv.visitJumpInsn(IFEQ, normal);
@@ -277,7 +277,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                 if (tooltip) {
                   Label normal = new Label();
                   mv.visitMethodInsn(
-                      INVOKESTATIC, "org/spectator164/ClientHooks", "isSpectating", "()Z");
+                      INVOKESTATIC, "org/spectatorlegacy/ClientHooks", "isSpectating", "()Z");
                   mv.visitJumpInsn(IFEQ, normal);
                   mv.visitInsn(RETURN);
                   mv.visitLabel(normal);
@@ -289,7 +289,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   mv.visitVarInsn(ALOAD, 1);
                   mv.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/SpectatorHooks",
+                      "org/spectatorlegacy/SpectatorHooks",
                       "blockDrop",
                       "(Lnet/minecraft/network/NetServerHandler;Lnet/minecraft/network/packet/Packet14BlockDig;)Z");
                   mv.visitJumpInsn(IFEQ, normal);
@@ -305,8 +305,8 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   mv.visitMethodInsn(
                       INVOKESTATIC,
                       inventory
-                          ? "org/spectator164/SpectatorHooks"
-                          : "org/spectator164/ClientHooks",
+                          ? "org/spectatorlegacy/SpectatorHooks"
+                          : "org/spectatorlegacy/ClientHooks",
                       inventory ? "blockInventoryChange" : "isSpectating",
                       inventory ? "(Lnet/minecraft/network/NetServerHandler;)Z" : "()Z");
                   mv.visitJumpInsn(IFEQ, normal);
@@ -324,7 +324,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                 mv.visitVarInsn(ALOAD, entityLocal);
                 mv.visitMethodInsn(
                     INVOKESTATIC,
-                    "org/spectator164/SpectatorHooks",
+                    "org/spectatorlegacy/SpectatorHooks",
                     "isSpectator",
                     "(Lnet/minecraft/entity/Entity;)Z");
                 mv.visitJumpInsn(IFEQ, normal);
@@ -343,7 +343,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   mv.visitVarInsn(ALOAD, 1);
                   mv.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/SpectatorMod",
+                      "org/spectatorlegacy/SpectatorMod",
                       "configureCapabilities",
                       "(Lnet/minecraft/world/EnumGameType;Lnet/minecraft/entity/player/PlayerCapabilities;)V");
                 }
@@ -365,7 +365,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   changes[info ? DEBUG_INFO : DEBUG_PROFILER]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/ClientHooks",
+                      "org/spectatorlegacy/ClientHooks",
                       info ? "setDebugInfo" : "setDebugProfiler",
                       "(Lnet/minecraft/client/settings/GameSettings;Z)V");
                 } else if (hotbar
@@ -376,7 +376,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   changes[HOTBAR_SLOT]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/ClientHooks",
+                      "org/spectatorlegacy/ClientHooks",
                       "selectHotbarSlot",
                       "(Lnet/minecraft/entity/player/InventoryPlayer;I)V");
                 } else {
@@ -395,7 +395,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   changes[BLOCK_FACE_CHECKS]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/ClientHooks",
+                      "org/spectatorlegacy/ClientHooks",
                       "shouldRenderSide",
                       "(Lnet/minecraft/block/Block;Lnet/minecraft/world/IBlockAccess;IIII)Z");
                 } else if (hotbar
@@ -405,7 +405,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                     && descriptor.equals("()Z")) {
                   changes[KEYBOARD_EVENT]++;
                   super.visitMethodInsn(
-                      INVOKESTATIC, "org/spectator164/ClientHooks", "nextKeyboardEvent", "()Z");
+                      INVOKESTATIC, "org/spectatorlegacy/ClientHooks", "nextKeyboardEvent", "()Z");
                 } else if (particles
                     && opcode == INVOKEVIRTUAL
                     && owner.equals("net/minecraft/world/World")
@@ -414,7 +414,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   super.visitVarInsn(ALOAD, 0);
                   super.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/SpectatorHooks",
+                      "org/spectatorlegacy/SpectatorHooks",
                       "spawnParticle",
                       "(Lnet/minecraft/world/World;Ljava/lang/String;DDDDDDLnet/minecraft/entity/Entity;)V");
                 } else if (flying
@@ -426,7 +426,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   changes[MOVEMENT_COLLISIONS]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
-                      "org/spectator164/SpectatorHooks",
+                      "org/spectatorlegacy/SpectatorHooks",
                       "movementCollisions",
                       "(Lnet/minecraft/world/WorldServer;Lnet/minecraft/entity/Entity;Lnet/minecraft/util/AxisAlignedBB;)Ljava/util/List;");
                 } else {
@@ -462,7 +462,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
         || (controller && changes[CLIENT_GAME_MODE] != 1)
         || (renderBlocks && changes[BLOCK_FACE_CHECKS] != 18)) {
       throw new IllegalStateException(
-          "Spectator164 could not apply the expected hooks to "
+          "SpectatorLegacy could not apply the expected hooks to "
               + transformedName
               + ": "
               + changes[PRESSURE_PLATE]
@@ -471,7 +471,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
               + ","
               + changes[MOVEMENT_COLLISIONS]);
     }
-    System.out.println("Spectator164 hooks verified for " + transformedName);
+    System.out.println("SpectatorLegacy hooks verified for " + transformedName);
     return writer.toByteArray();
   }
 }

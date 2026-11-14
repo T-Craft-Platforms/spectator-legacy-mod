@@ -1,4 +1,4 @@
-package org.spectator164;
+package org.spectatorlegacy;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;

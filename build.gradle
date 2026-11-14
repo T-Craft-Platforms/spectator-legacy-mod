@@ -17,8 +17,8 @@ if (JavaVersion.current() != JavaVersion.VERSION_1_8) {
 apply plugin: 'forge'
 
 version = '0.1.0-dev'
-group = 'org.spectator164'
-archivesBaseName = 'spectator164'
+group = 'ch.tcraft.spectatorlegacymod'
+archivesBaseName = 'spectatorlegacymod'
 minecraft {
     version = '1.6.4-9.11.1.964'
 }
@@ -47,7 +47,7 @@ task formatJava(type: JavaExec) {
 
 jar {
     manifest {
-        attributes 'FMLCorePlugin': 'org.spectator164.core.SpectatorCore',
+        attributes 'FMLCorePlugin': 'org.spectatorlegacy.core.SpectatorCore',
                    'FMLCorePluginContainsFMLMod': 'true'
     }
 }

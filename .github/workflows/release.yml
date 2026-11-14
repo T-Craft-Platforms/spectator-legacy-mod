@@ -50,7 +50,7 @@ jobs:
         run: |
           gradle setupCIWorkspace --no-daemon
           gradle clean build --no-daemon
-          cp build/libs/spectator164-0.1.0-dev.jar spectator164.jar
+          cp build/libs/spectatorlegacy-0.1.0-dev.jar spectatorlegacy.jar
 
       - name: Publish release asset
         if: steps.tag.outputs.valid == 'true'
@@ -66,4 +66,4 @@ jobs:
             fi
             gh release create "$TAG" "${args[@]}"
           fi
-          gh release upload "$TAG" spectator164.jar --clobber
+          gh release upload "$TAG" spectatorlegacy.jar --clobber

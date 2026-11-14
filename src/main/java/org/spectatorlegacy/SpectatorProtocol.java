@@ -1,7 +1,7 @@
-package org.spectator164;
+package org.spectatorlegacy;
 
 final class SpectatorProtocol {
-  static final String CHANNEL = "Spectator164";
+  static final String CHANNEL = "SpectatorLegacy";
 
   static final byte TELEPORT_TO_PLAYER = 1;
   static final byte SPECTATOR_STATE = 2;

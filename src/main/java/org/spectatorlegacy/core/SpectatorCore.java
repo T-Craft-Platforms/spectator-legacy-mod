@@ -1,14 +1,14 @@
-package org.spectator164.core;
+package org.spectatorlegacy.core;
 
 import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
 import java.util.Map;
 
 @IFMLLoadingPlugin.MCVersion("1.6.4")
 @IFMLLoadingPlugin.SortingIndex(1001)
-@IFMLLoadingPlugin.TransformerExclusions({"org.spectator164.core"})
+@IFMLLoadingPlugin.TransformerExclusions({"org.spectatorlegacy.core"})
 public final class SpectatorCore implements IFMLLoadingPlugin {
   public String[] getASMTransformerClass() {
-    return new String[] {"org.spectator164.core.SpectatorTransformer"};
+    return new String[] {"org.spectatorlegacy.core.SpectatorTransformer"};
   }
 
   public String getModContainerClass() {

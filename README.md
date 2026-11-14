@@ -1,4 +1,4 @@
-# Spectator 1.6.4
+# Spectator Legacy Mod
 
 Install the jar on both the Minecraft 1.6.4 Forge client and server. With cheats or operator permission, use `/gamemode spectator` or `/gamemode 3` to enter spectator, and `/gamemode` with another mode to leave it. Press F3+N to toggle between spectator and the previous game mode. The standard `/gamemode` player argument also works.
 

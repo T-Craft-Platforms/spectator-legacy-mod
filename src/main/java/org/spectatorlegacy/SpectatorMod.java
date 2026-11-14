@@ -1,4 +1,4 @@
-package org.spectator164;
+package org.spectatorlegacy;
 
 import cpw.mods.fml.common.IPlayerTracker;
 import cpw.mods.fml.common.ITickHandler;
@@ -41,7 +41,7 @@ import net.minecraftforge.event.entity.player.EntityInteractEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
-@Mod(modid = "spectator164", name = "Spectator 1.6.4", version = "0.1.0-dev")
+@Mod(modid = "spectatorlegacy", name = "SpectatorLegacy", version = "0.1.0-dev")
 @NetworkMod(
     clientSideRequired = true,
     serverSideRequired = true,
@@ -49,11 +49,11 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
     packetHandler = SpectatorMod.Packets.class)
 public final class SpectatorMod implements ITickHandler {
   @SidedProxy(
-      clientSide = "org.spectator164.ClientProxy",
-      serverSide = "org.spectator164.CommonProxy")
+      clientSide = "org.spectatorlegacy.ClientProxy",
+      serverSide = "org.spectatorlegacy.CommonProxy")
   public static CommonProxy proxy;
 
-  private static final String KEY = "spectator164Active";
+  private static final String KEY = "spectatorlegacyActive";
   private static boolean clientActive;
   private static EnumGameType spectatorMode;
   private static final Map<EntityPlayerMP, Entity> cameras =
@@ -147,7 +147,7 @@ public final class SpectatorMod implements ITickHandler {
     int oldId = manager.getGameType().getID();
     boolean enabled = next.getID() == 3;
     if (enabled && oldId != 3 && oldId >= 0) {
-      p.getEntityData().setInteger("spectator164PreviousMode", oldId);
+      p.getEntityData().setInteger("spectatorlegacyPreviousMode", oldId);
     }
     if (oldId == 3 && !enabled) {
       stopCamera(p);
@@ -234,7 +234,7 @@ public final class SpectatorMod implements ITickHandler {
     private void handleServerPacket(Packet250CustomPayload packet, EntityPlayer p) {
       if (packet.data.length == 1 && packet.data[0] == SpectatorProtocol.TOGGLE_MODE) {
         EntityPlayerMP playerMP = (EntityPlayerMP) p;
-        int mode = active(p) ? p.getEntityData().getInteger("spectator164PreviousMode") : 3;
+        int mode = active(p) ? p.getEntityData().getInteger("spectatorlegacyPreviousMode") : 3;
         if (active(p) && (mode < 0 || mode > 2)) {
           mode = 0;
         }
@@ -393,7 +393,7 @@ public final class SpectatorMod implements ITickHandler {
   }
 
   public String getLabel() {
-    return "Spectator164";
+    return "SpectatorLegacy";
   }
 
   @ForgeSubscribe

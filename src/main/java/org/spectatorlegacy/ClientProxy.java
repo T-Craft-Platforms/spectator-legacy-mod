@@ -1,4 +1,4 @@
-package org.spectator164;
+package org.spectatorlegacy;
 
 import cpw.mods.fml.common.ITickHandler;
 import cpw.mods.fml.common.TickType;
@@ -227,7 +227,7 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
           }
 
           public String getLabel() {
-            return "Spectator164Camera";
+            return "SpectatorLegacyCamera";
           }
         },
         Side.CLIENT);
@@ -352,7 +352,7 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
   }
 
   public String getLabel() {
-    return "Spectator164Client";
+    return "SpectatorLegacyClient";
   }
 
   private static final class SpectatorItemRenderer extends ItemRenderer {

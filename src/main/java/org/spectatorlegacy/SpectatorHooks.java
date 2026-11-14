@@ -1,4 +1,4 @@
-package org.spectator164;
+package org.spectatorlegacy;
 
 import java.util.Collections;
 import java.util.List;

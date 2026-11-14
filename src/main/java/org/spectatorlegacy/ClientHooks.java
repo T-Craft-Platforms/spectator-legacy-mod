@@ -1,4 +1,4 @@
-package org.spectator164;
+package org.spectatorlegacy;
 
 import cpw.mods.fml.common.network.PacketDispatcher;
 import net.minecraft.block.Block;
