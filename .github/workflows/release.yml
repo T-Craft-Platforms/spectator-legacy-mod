@@ -50,7 +50,13 @@ jobs:
         run: |
           gradle setupCIWorkspace --no-daemon
           gradle clean build --no-daemon
-          cp build/libs/spectatorlegacy-0.1.0-dev.jar spectatorlegacy.jar
+          shopt -s nullglob
+          jars=(build/libs/spectatorlegacymod-*.jar)
+          if (( ${#jars[@]} == 0 )); then
+            echo "No spectatorlegacymod jar found in build/libs" >&2
+            exit 1
+          fi
+          cp "${jars[0]}" spectatorlegacy.jar
 
       - name: Publish release asset
         if: steps.tag.outputs.valid == 'true'
