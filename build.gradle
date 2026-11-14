@@ -1,7 +1,13 @@
 buildscript {
-    repositories { maven { url 'https://maven.minecraftforge.net' }; mavenCentral() }
-    dependencies { classpath 'net.minecraftforge.gradle:ForgeGradle:1.0-SNAPSHOT' }
+    repositories {
+        maven { url 'https://maven.minecraftforge.net' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:1.0-SNAPSHOT'
+    }
 }
+
 if (GradleVersion.current() != GradleVersion.version('3.0')) {
     throw new GradleException('This legacy Forge build requires Gradle 3.0 and Java 8. Run: mise run build')
 }
@@ -9,26 +15,39 @@ if (JavaVersion.current() != JavaVersion.VERSION_1_8) {
     throw new GradleException('This legacy Forge build requires Java 8. Run: mise run build')
 }
 apply plugin: 'forge'
+
 version = '0.1.0-dev'
 group = 'org.spectator164'
 archivesBaseName = 'spectator164'
-minecraft { version = '1.6.4-9.11.1.964' }
-downloadClient.url = new net.minecraftforge.gradle.delayed.DelayedString(project, 'https://launcher.mojang.com/v1/objects/1703704407101cf72bd88e68579e3696ce733ecd/client.jar')
-downloadServer.url = new net.minecraftforge.gradle.delayed.DelayedString(project, 'https://launcher.mojang.com/v1/objects/050f93c1f3fe9e2052398f7bd6aca10c63d64a87/server.jar')
+minecraft {
+    version = '1.6.4-9.11.1.964'
+}
 
-configurations { javaFormatter }
-dependencies { javaFormatter 'com.google.googlejavaformat:google-java-format:1.7' }
+downloadClient.url = new net.minecraftforge.gradle.delayed.DelayedString(
+    project, 'https://launcher.mojang.com/v1/objects/1703704407101cf72bd88e68579e3696ce733ecd/client.jar')
+downloadServer.url = new net.minecraftforge.gradle.delayed.DelayedString(
+    project, 'https://launcher.mojang.com/v1/objects/050f93c1f3fe9e2052398f7bd6aca10c63d64a87/server.jar')
+
+configurations {
+    javaFormatter
+}
+
+dependencies {
+    javaFormatter 'com.google.googlejavaformat:google-java-format:1.7'
+}
 
 task formatJava(type: JavaExec) {
     description = 'Format Java sources with the pinned Google Java Format version.'
     classpath = configurations.javaFormatter
     main = 'com.google.googlejavaformat.java.Main'
     args '--replace'
-    args fileTree('src') { include '**/*.java' }.files.sort { a, b -> a.path <=> b.path }.collect { it.absolutePath }
+    def sources = fileTree('src') { include '**/*.java' }
+    args sources.files.sort { a, b -> a.path <=> b.path }.collect { it.absolutePath }
 }
 
 jar {
     manifest {
-        attributes 'FMLCorePlugin': 'org.spectator164.core.SpectatorCore', 'FMLCorePluginContainsFMLMod': 'true'
+        attributes 'FMLCorePlugin': 'org.spectator164.core.SpectatorCore',
+                   'FMLCorePluginContainsFMLMod': 'true'
     }
 }

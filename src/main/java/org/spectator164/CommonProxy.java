@@ -1,5 +1,7 @@
 package org.spectator164;
 
+import net.minecraft.entity.player.EntityPlayer;
+
 public class CommonProxy {
   public void init() {}
 
@@ -7,7 +9,7 @@ public class CommonProxy {
 
   public void cameraTarget(int entityId) {}
 
-  public boolean isClientSpectator(net.minecraft.entity.player.EntityPlayer player) {
+  public boolean isClientSpectator(EntityPlayer player) {
     return false;
   }
 

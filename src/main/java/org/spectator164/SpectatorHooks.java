@@ -27,23 +27,30 @@ public final class SpectatorHooks {
   }
 
   public static double cameraX(Entity entity) {
-    if (!(entity instanceof EntityHanging)) return entity.posX;
+    if (!(entity instanceof EntityHanging)) {
+      return entity.posX;
+    }
     double angle = Math.toRadians(((EntityHanging) entity).hangingDirection * 90.0D);
     double distance = (entity.boundingBox.maxX - entity.boundingBox.minX) / 2.0D + 0.25D;
     return entity.posX - Math.sin(angle) * distance;
   }
 
   public static double cameraZ(Entity entity) {
-    if (!(entity instanceof EntityHanging)) return entity.posZ;
+    if (!(entity instanceof EntityHanging)) {
+      return entity.posZ;
+    }
     double angle = Math.toRadians(((EntityHanging) entity).hangingDirection * 90.0D);
     double distance = (entity.boundingBox.maxZ - entity.boundingBox.minZ) / 2.0D + 0.25D;
     return entity.posZ + Math.cos(angle) * distance;
   }
 
   public static double cameraY(Entity entity) {
-    if (entity instanceof EntityMinecart || entity instanceof EntityBoat)
+    if (entity instanceof EntityMinecart || entity instanceof EntityBoat) {
       return entity.boundingBox.maxY + 0.25D;
-    if (entity instanceof EntityLivingBase) return entity.boundingBox.minY + entity.getEyeHeight();
+    }
+    if (entity instanceof EntityLivingBase) {
+      return entity.boundingBox.minY + entity.getEyeHeight();
+    }
     return (entity.boundingBox.minY + entity.boundingBox.maxY) / 2.0D;
   }
 
@@ -58,7 +65,9 @@ public final class SpectatorHooks {
   }
 
   public static boolean blockInventoryChange(NetServerHandler handler) {
-    if (!isSpectator(handler.playerEntity)) return false;
+    if (!isSpectator(handler.playerEntity)) {
+      return false;
+    }
     handler.playerEntity.sendContainerToPlayer(handler.playerEntity.openContainer);
     handler.sendPacketToPlayer(
         new Packet103SetSlot(-1, -1, handler.playerEntity.inventory.getItemStack()));
@@ -75,7 +84,9 @@ public final class SpectatorHooks {
       double vy,
       double vz,
       Entity source) {
-    if (!isSpectator(source)) world.spawnParticle(name, x, y, z, vx, vy, vz);
+    if (!isSpectator(source)) {
+      world.spawnParticle(name, x, y, z, vx, vy, vz);
+    }
   }
 
   public static List movementCollisions(WorldServer world, Entity entity, AxisAlignedBB bounds) {

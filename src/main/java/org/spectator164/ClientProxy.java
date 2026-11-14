@@ -6,9 +6,6 @@ import cpw.mods.fml.common.network.PacketDispatcher;
 import cpw.mods.fml.common.registry.TickRegistry;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import java.io.ByteArrayInputStream;
-import java.io.DataInputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -21,17 +18,8 @@ import net.minecraft.block.BlockEnderChest;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiHopper;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.inventory.GuiBeacon;
-import net.minecraft.client.gui.inventory.GuiBrewingStand;
-import net.minecraft.client.gui.inventory.GuiChest;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
-import net.minecraft.client.gui.inventory.GuiDispenser;
-import net.minecraft.client.gui.inventory.GuiFurnace;
 import net.minecraft.client.gui.inventory.GuiInventory;
-import net.minecraft.client.gui.inventory.GuiScreenHorseInventory;
 import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.renderer.ItemRenderer;
 import net.minecraft.client.renderer.Tessellator;
@@ -40,18 +28,9 @@ import net.minecraft.client.settings.GameSettings;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityHanging;
 import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.passive.EntityHorse;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.tileentity.TileEntityBeacon;
-import net.minecraft.tileentity.TileEntityBrewingStand;
-import net.minecraft.tileentity.TileEntityDispenser;
-import net.minecraft.tileentity.TileEntityDropper;
-import net.minecraft.tileentity.TileEntityFurnace;
-import net.minecraft.tileentity.TileEntityHopper;
 import net.minecraft.util.EnumMovingObjectType;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
@@ -68,7 +47,9 @@ import org.lwjgl.opengl.GL11;
 
 @SideOnly(Side.CLIENT)
 public class ClientProxy extends CommonProxy implements ITickHandler {
-  private float speed = 0.05F;
+  private static final float DEFAULT_FLIGHT_SPEED = 0.05F;
+
+  private float speed = DEFAULT_FLIGHT_SPEED;
   private final Map<Integer, Long> spectatorIds = new HashMap<Integer, Long>();
   private final ModelBiped spectatorHead = new ModelBiped();
   private Object currentWorld;
@@ -77,6 +58,11 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
   private boolean allowEdit;
   private Entity camera;
   private CameraAnchor cameraAnchor;
+  private int menuTicks;
+  private List<EntityPlayer> menuPlayers = new ArrayList<EntityPlayer>();
+  private final boolean[] keyWasDown = new boolean[9];
+  private ItemRenderer originalRenderer;
+  private ItemRenderer spectatorRenderer;
 
   @Override
   public void cameraTarget(int id) {
@@ -90,7 +76,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
         || target.isDead
         || mc.thePlayer == null
         || !SpectatorMod.active(mc.thePlayer)) {
-      if (mc.thePlayer != null && SpectatorMod.active(mc.thePlayer)) requestCamera(-1);
+      if (mc.thePlayer != null && SpectatorMod.active(mc.thePlayer)) {
+        requestCamera(-1);
+      }
       return;
     }
     camera = target;
@@ -104,13 +92,17 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
       mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = cameraAnchor.rotationYaw;
       mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = cameraAnchor.rotationPitch;
     }
-    if (mc.thePlayer != null) mc.renderViewEntity = mc.thePlayer;
+    if (mc.thePlayer != null) {
+      mc.renderViewEntity = mc.thePlayer;
+    }
     camera = null;
     cameraAnchor = null;
   }
 
   private void updateCameraAnchor() {
-    if (camera == null || cameraAnchor == null) return;
+    if (camera == null || cameraAnchor == null) {
+      return;
+    }
     double x = SpectatorHooks.cameraX(camera),
         y = SpectatorHooks.cameraY(camera),
         z = SpectatorHooks.cameraZ(camera);
@@ -162,148 +154,44 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
   private void requestCamera(int id) {
     PacketDispatcher.sendPacketToServer(
         PacketDispatcher.getPacket(
-            "Spectator164", ByteBuffer.allocate(5).put((byte) 5).putInt(id).array()));
+            SpectatorProtocol.CHANNEL,
+            ByteBuffer.allocate(5).put(SpectatorProtocol.REQUEST_CAMERA).putInt(id).array()));
   }
 
   @Override
   public void spectatorState(int id, boolean active) {
-    if (active) spectatorIds.put(id, System.currentTimeMillis());
-    else spectatorIds.remove(id);
+    if (active) {
+      spectatorIds.put(id, System.currentTimeMillis());
+    } else {
+      spectatorIds.remove(id);
+    }
   }
 
   @Override
   public boolean isClientSpectator(EntityPlayer player) {
     Minecraft mc = Minecraft.getMinecraft();
-    if (player == mc.thePlayer) return SpectatorMod.clientActive();
+    if (player == mc.thePlayer) {
+      return SpectatorMod.clientActive();
+    }
     Long seen = spectatorIds.get(player.entityId);
     return seen != null && System.currentTimeMillis() - seen.longValue() <= 5000L;
   }
 
   @Override
   public void showInventorySnapshot(byte[] data) {
-    Minecraft mc = Minecraft.getMinecraft();
-    if (mc.thePlayer == null || !SpectatorMod.active(mc.thePlayer)) return;
-    try {
-      DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
-      int type = in.readUnsignedByte();
-      if (type == 10) {
-        int kind = in.readUnsignedByte();
-        if (kind > 2) return;
-        String title = Packet.readString(in, 64);
-        boolean customName = in.readBoolean();
-        int horseType = 0, variant = 0, age = 0;
-        boolean tame = false;
-        if (kind == 0) {
-          horseType = in.readUnsignedByte();
-          variant = in.readInt();
-          age = in.readInt();
-          tame = in.readBoolean();
-          if (horseType > 4) return;
-        }
-        int size = in.readUnsignedByte();
-        if (kind == 0 ? size != 2 && size != 17 : size != (kind == 1 ? 27 : 5)) return;
-        InventoryBasic snapshot = new InventoryBasic(title, customName, size);
-        for (int i = 0; i < size; i++)
-          snapshot.setInventorySlotContents(i, Packet.readItemStack(in));
-        if (in.available() != 0) return;
-        if (kind == 0) {
-          EntityHorse horse = new EntityHorse(mc.theWorld);
-          horse.setHorseType(horseType);
-          horse.setHorseVariant(variant);
-          horse.setGrowingAge(age);
-          horse.setHorseTamed(tame);
-          horse.setChested(size == 17);
-          horse.setHorseSaddled(snapshot.getStackInSlot(0) != null);
-          horse.func_110236_r(horse.getHorseArmorIndex(snapshot.getStackInSlot(1)));
-          mc.displayGuiScreen(new GuiScreenHorseInventory(mc.thePlayer.inventory, snapshot, horse));
-        } else if (kind == 1) {
-          mc.displayGuiScreen(new GuiChest(mc.thePlayer.inventory, snapshot));
-        } else {
-          mc.displayGuiScreen(new GuiHopper(mc.thePlayer.inventory, snapshot));
-        }
-        return;
-      }
-      if (type == 9) {
-        int kind = in.readUnsignedByte();
-        String title = Packet.readString(in, 64);
-        boolean customName = in.readBoolean();
-        IInventory snapshot;
-        GuiScreen screen;
-        if (kind == 0 || kind == 1) {
-          TileEntityDispenser dispenser =
-              kind == 0 ? new TileEntityDropper() : new TileEntityDispenser();
-          if (customName) dispenser.setCustomName(title);
-          snapshot = dispenser;
-          screen = new GuiDispenser(mc.thePlayer.inventory, dispenser);
-        } else if (kind == 2) {
-          TileEntityHopper hopper = new TileEntityHopper();
-          if (customName) hopper.setInventoryName(title);
-          snapshot = hopper;
-          screen = new GuiHopper(mc.thePlayer.inventory, hopper);
-        } else if (kind == 3) {
-          TileEntityBrewingStand brewing = new TileEntityBrewingStand();
-          if (customName) brewing.func_94131_a(title);
-          brewing.setBrewTime(in.readInt());
-          snapshot = brewing;
-          screen = new GuiBrewingStand(mc.thePlayer.inventory, brewing);
-        } else if (kind == 4) {
-          TileEntityBeacon beacon = new TileEntityBeacon();
-          if (customName) beacon.func_94047_a(title);
-          beacon.setLevels(in.readInt());
-          beacon.setPrimaryEffect(in.readInt());
-          beacon.setSecondaryEffect(in.readInt());
-          snapshot = beacon;
-          screen = new ReadOnlyBeacon(mc.thePlayer.inventory, beacon);
-        } else return;
-        for (int i = 0; i < snapshot.getSizeInventory(); i++)
-          snapshot.setInventorySlotContents(i, Packet.readItemStack(in));
-        if (in.available() == 0) mc.displayGuiScreen(screen);
-        return;
-      }
-      String title = Packet.readString(in, 64);
-      boolean customName = in.readBoolean();
-      if (type == 8) {
-        TileEntityFurnace furnace = new TileEntityFurnace();
-        if (customName) furnace.setGuiDisplayName(title);
-        furnace.furnaceBurnTime = in.readInt();
-        furnace.currentItemBurnTime = in.readInt();
-        furnace.furnaceCookTime = in.readInt();
-        for (int i = 0; i < 3; i++) furnace.setInventorySlotContents(i, Packet.readItemStack(in));
-        if (in.available() == 0)
-          mc.displayGuiScreen(new GuiFurnace(mc.thePlayer.inventory, furnace));
-        return;
-      }
-      if (type != 4) return;
-      int size = in.readUnsignedByte();
-      if (size < 9 || size > 54 || size % 9 != 0) return;
-      InventoryBasic snapshot = new InventoryBasic(title, customName, size);
-      for (int i = 0; i < size; i++) snapshot.setInventorySlotContents(i, Packet.readItemStack(in));
-      if (in.available() == 0) mc.displayGuiScreen(new GuiChest(mc.thePlayer.inventory, snapshot));
-    } catch (IOException ignored) {
-    }
+    InventorySnapshotViewer.showInventorySnapshot(data);
   }
-
-  private static final class ReadOnlyBeacon extends GuiBeacon {
-    ReadOnlyBeacon(net.minecraft.entity.player.InventoryPlayer inventory, TileEntityBeacon beacon) {
-      super(inventory, beacon);
-    }
-
-    @Override
-    protected void actionPerformed(GuiButton button) {
-      if (button.id == -2) super.actionPerformed(button);
-    }
-  }
-
-  private int menuTicks;
-  private List<EntityPlayer> menuPlayers = new ArrayList<EntityPlayer>();
-  private final boolean[] keyWasDown = new boolean[9];
 
   private List<EntityPlayer> players(Minecraft mc) {
     List<EntityPlayer> result = new ArrayList<EntityPlayer>();
-    if (mc.theWorld == null) return result;
+    if (mc.theWorld == null) {
+      return result;
+    }
     for (Object entry : mc.theWorld.playerEntities) {
       EntityPlayer p = (EntityPlayer) entry;
-      if (p != mc.thePlayer && !p.isDead) result.add(p);
+      if (p != mc.thePlayer && !p.isDead) {
+        result.add(p);
+      }
     }
     return result;
   }
@@ -313,8 +201,12 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
         && mc.theWorld.getEntityByID(menuPlayers.get(slot).entityId) == menuPlayers.get(slot)
         && !menuPlayers.get(slot).isDead) {
       byte[] data =
-          ByteBuffer.allocate(5).put((byte) 1).putInt(menuPlayers.get(slot).entityId).array();
-      PacketDispatcher.sendPacketToServer(PacketDispatcher.getPacket("Spectator164", data));
+          ByteBuffer.allocate(5)
+              .put(SpectatorProtocol.TELEPORT_TO_PLAYER)
+              .putInt(menuPlayers.get(slot).entityId)
+              .array();
+      PacketDispatcher.sendPacketToServer(
+          PacketDispatcher.getPacket(SpectatorProtocol.CHANNEL, data));
       menuTicks = 0;
     }
   }
@@ -341,29 +233,39 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
         Side.CLIENT);
   }
 
-  private ItemRenderer originalRenderer;
-  private ItemRenderer spectatorRenderer;
-
   public void tickStart(EnumSet<TickType> types, Object... data) {
     Minecraft mc = Minecraft.getMinecraft();
-    if (mc.entityRenderer == null) return;
+    if (mc.entityRenderer == null) {
+      return;
+    }
     boolean worldChanged = currentWorld != mc.theWorld;
     if (worldChanged) {
       stopCamera(mc);
       spectatorIds.clear();
       currentWorld = mc.theWorld;
-      if (mc.theWorld == null) SpectatorMod.clearClientState();
+      if (mc.theWorld == null) {
+        SpectatorMod.clearClientState();
+      }
     }
     boolean active = mc.thePlayer != null && SpectatorMod.active(mc.thePlayer);
     if (!worldChanged && active != wasActive && mc.renderGlobal != null) {
       mc.renderGlobal.loadRenderers();
     }
+    updateCamera(mc, active);
+    updateFlight(mc, active, worldChanged);
+    updatePlayerMenu(mc, active);
+    updateItemRenderer(mc, active);
+  }
+
+  private void updateCamera(Minecraft mc, boolean active) {
     if (camera != null) {
       if (!active
           || camera.isDead
           || camera.worldObj != mc.theWorld
           || mc.theWorld.getEntityByID(camera.entityId) != camera) {
-        if (active) requestCamera(-1);
+        if (active) {
+          requestCamera(-1);
+        }
         stopCamera(mc);
       } else if (GameSettings.isKeyDown(mc.gameSettings.keyBindSneak)) {
         requestCamera(-1);
@@ -378,11 +280,16 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
         mc.thePlayer.motionX = mc.thePlayer.motionY = mc.thePlayer.motionZ = 0;
       }
     }
+  }
+
+  private void updateFlight(Minecraft mc, boolean active, boolean worldChanged) {
     boolean creative = mc.playerController != null && mc.playerController.isInCreativeMode();
     boolean canEdit = mc.thePlayer != null && mc.thePlayer.capabilities.allowEdit;
     if (worldChanged || active != wasActive || creative != creativeMode || canEdit != allowEdit) {
-      speed = 0.05F;
-      if (mc.thePlayer != null) mc.thePlayer.capabilities.setFlySpeed(speed);
+      speed = DEFAULT_FLIGHT_SPEED;
+      if (mc.thePlayer != null) {
+        mc.thePlayer.capabilities.setFlySpeed(speed);
+      }
     }
     wasActive = active;
     creativeMode = creative;
@@ -398,14 +305,23 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
         mc.thePlayer.motionY += vertical * 0.15D * (effectiveSpeed / 0.05D - 1.0D);
       }
     }
-    if (!active || mc.currentScreen != null) menuTicks = 0;
-    if (menuTicks > 0) menuTicks--;
+  }
+
+  private void updatePlayerMenu(Minecraft mc, boolean active) {
+    if (!active || mc.currentScreen != null) {
+      menuTicks = 0;
+    }
+    if (menuTicks > 0) {
+      menuTicks--;
+    }
     for (int i = 0; i < 9; i++) {
       boolean down = Keyboard.isKeyDown(Keyboard.KEY_1 + i);
       if (active && mc.currentScreen == null && down && !keyWasDown[i]) {
         if (menuTicks > 0) {
           choose(mc, i);
-          if (menuTicks > 0) menuTicks = 100;
+          if (menuTicks > 0) {
+            menuTicks = 100;
+          }
         } else {
           menuPlayers = players(mc);
           menuTicks = 100;
@@ -413,13 +329,17 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
       }
       keyWasDown[i] = down;
     }
+  }
+
+  private void updateItemRenderer(Minecraft mc, boolean active) {
     if (active && mc.entityRenderer.itemRenderer != spectatorRenderer) {
       originalRenderer = mc.entityRenderer.itemRenderer;
       spectatorRenderer = new SpectatorItemRenderer(mc);
       mc.entityRenderer.itemRenderer = spectatorRenderer;
     } else if (!active && spectatorRenderer != null) {
-      if (mc.entityRenderer.itemRenderer == spectatorRenderer)
+      if (mc.entityRenderer.itemRenderer == spectatorRenderer) {
         mc.entityRenderer.itemRenderer = originalRenderer;
+      }
       spectatorRenderer = null;
       originalRenderer = null;
     }
@@ -461,26 +381,32 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
   @ForgeSubscribe
   public void mouse(MouseEvent event) {
     Minecraft mc = Minecraft.getMinecraft();
-    if (mc.thePlayer == null || mc.currentScreen != null || !SpectatorMod.active(mc.thePlayer))
+    if (mc.thePlayer == null || mc.currentScreen != null || !SpectatorMod.active(mc.thePlayer)) {
       return;
+    }
     if (event.button == 1 && event.buttonstate) {
       MovingObjectPosition target = mc.objectMouseOver;
       if (target != null && target.typeOfHit == EnumMovingObjectType.TILE) {
         byte[] data =
             ByteBuffer.allocate(13)
-                .put((byte) 3)
+                .put(SpectatorProtocol.REQUEST_BLOCK_INVENTORY)
                 .putInt(target.blockX)
                 .putInt(target.blockY)
                 .putInt(target.blockZ)
                 .array();
-        PacketDispatcher.sendPacketToServer(PacketDispatcher.getPacket("Spectator164", data));
+        PacketDispatcher.sendPacketToServer(
+            PacketDispatcher.getPacket(SpectatorProtocol.CHANNEL, data));
       } else if (camera == null
           && target != null
           && target.typeOfHit == EnumMovingObjectType.ENTITY
           && target.entityHit != null) {
         byte[] data =
-            ByteBuffer.allocate(5).put((byte) 11).putInt(target.entityHit.entityId).array();
-        PacketDispatcher.sendPacketToServer(PacketDispatcher.getPacket("Spectator164", data));
+            ByteBuffer.allocate(5)
+                .put(SpectatorProtocol.REQUEST_ENTITY_INVENTORY)
+                .putInt(target.entityHit.entityId)
+                .array();
+        PacketDispatcher.sendPacketToServer(
+            PacketDispatcher.getPacket(SpectatorProtocol.CHANNEL, data));
       }
       event.setCanceled(true);
       return;
@@ -496,7 +422,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
       event.setCanceled(true);
       return;
     }
-    if (event.dwheel == 0) return;
+    if (event.dwheel == 0) {
+      return;
+    }
     speed = Math.max(0.005F, Math.min(0.5F, speed + (event.dwheel > 0 ? 0.005F : -0.005F)));
     mc.thePlayer.capabilities.setFlySpeed(speed);
     event.setCanceled(true);
@@ -516,8 +444,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
     if (mc.thePlayer == null
         || !SpectatorMod.active(mc.thePlayer)
         || !(player instanceof AbstractClientPlayer)
-        || (!self && (seen == null || System.currentTimeMillis() - seen.longValue() > 5000L)))
+        || (!self && (seen == null || System.currentTimeMillis() - seen.longValue() > 5000L))) {
       return;
+    }
     float t = event.partialRenderTick;
     double x =
         inventoryPreview
@@ -563,7 +492,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
   @ForgeSubscribe
   public void hideCameraTarget(RenderLivingEvent.Pre event) {
     Minecraft mc = Minecraft.getMinecraft();
-    if (camera == event.entity && mc.gameSettings.thirdPersonView == 0) event.setCanceled(true);
+    if (camera == event.entity && mc.gameSettings.thirdPersonView == 0) {
+      event.setCanceled(true);
+    }
   }
 
   @ForgeSubscribe
@@ -572,7 +503,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
     if (event.type != RenderGameOverlayEvent.ElementType.ALL
         || menuTicks <= 0
         || mc.thePlayer == null
-        || !SpectatorMod.active(mc.thePlayer)) return;
+        || !SpectatorMod.active(mc.thePlayer)) {
+      return;
+    }
     List<EntityPlayer> entries = menuPlayers;
     int width = event.resolution.getScaledWidth();
     int height = event.resolution.getScaledHeight();
@@ -597,8 +530,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
       mc.fontRenderer.drawStringWithShadow(
           (i + 1) + ": " + entries.get(i).username, left, height - 37 - i * 10, 0xffffff);
     }
-    if (entries.isEmpty())
+    if (entries.isEmpty()) {
       mc.fontRenderer.drawStringWithShadow("No nearby players", left, height - 37, 0xffffff);
+    }
   }
 
   private void drawSkinLayer(int x, int y, int u, int v) {
@@ -613,14 +547,22 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
 
   @ForgeSubscribe
   public void blockHighlight(DrawBlockHighlightEvent event) {
-    if (SpectatorMod.active(event.player)) event.setCanceled(true);
+    if (SpectatorMod.active(event.player)) {
+      event.setCanceled(true);
+    }
   }
 
   private boolean interactiveTarget(Minecraft mc) {
     MovingObjectPosition target = mc.objectMouseOver;
-    if (target == null) return false;
-    if (target.typeOfHit == EnumMovingObjectType.ENTITY) return target.entityHit != null;
-    if (target.typeOfHit != EnumMovingObjectType.TILE || mc.theWorld == null) return false;
+    if (target == null) {
+      return false;
+    }
+    if (target.typeOfHit == EnumMovingObjectType.ENTITY) {
+      return target.entityHit != null;
+    }
+    if (target.typeOfHit != EnumMovingObjectType.TILE || mc.theWorld == null) {
+      return false;
+    }
     int id = mc.theWorld.getBlockId(target.blockX, target.blockY, target.blockZ);
     Block block = id > 0 ? Block.blocksList[id] : null;
     return block instanceof BlockChest
@@ -632,7 +574,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
   @ForgeSubscribe
   public void overlay(RenderGameOverlayEvent.Pre event) {
     Minecraft mc = Minecraft.getMinecraft();
-    if (mc.thePlayer == null || !SpectatorMod.active(mc.thePlayer)) return;
+    if (mc.thePlayer == null || !SpectatorMod.active(mc.thePlayer)) {
+      return;
+    }
     if (event.type == RenderGameOverlayEvent.ElementType.CROSSHAIRS
         && (camera != null || !interactiveTarget(mc))) {
       event.setCanceled(true);

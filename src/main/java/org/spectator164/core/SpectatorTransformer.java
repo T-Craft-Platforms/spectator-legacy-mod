@@ -9,8 +9,31 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 public final class SpectatorTransformer implements IClassTransformer, Opcodes {
+  private static final int PRESSURE_PLATE = 0;
+  private static final int BLOCK_COLLISIONS = 1;
+  private static final int MOVEMENT_COLLISIONS = 2;
+  private static final int INVENTORY_PACKETS = 3;
+  private static final int GUI_CLICK = 4;
+  private static final int DROP_PACKET = 5;
+  private static final int ENTITY_COLLISIONS = 6;
+  private static final int HOTBAR_SLOT = 7;
+  private static final int HUD_TOOLTIP = 8;
+  private static final int PLAYER_PICKUP = 9;
+  private static final int COLLISION_ELIGIBILITY = 10;
+  private static final int CAPABILITIES = 11;
+  private static final int SERVER_GAME_MODE = 12;
+  private static final int CLIENT_GAME_MODE = 13;
+  private static final int DEBUG_INFO = 14;
+  private static final int DEBUG_PROFILER = 15;
+  private static final int KEYBOARD_EVENT = 16;
+  private static final int LIQUID_CHECKS = 17;
+  private static final int WEB_COLLISION = 18;
+  private static final int BLOCK_FACE_CHECKS = 19;
+
   public byte[] transform(String name, String transformedName, byte[] bytes) {
-    if (bytes == null) return null;
+    if (bytes == null) {
+      return null;
+    }
     final boolean entity = "net.minecraft.entity.Entity".equals(transformedName);
     final boolean server = "net.minecraft.network.NetServerHandler".equals(transformedName);
     final boolean gui = "net.minecraft.client.gui.inventory.GuiContainer".equals(transformedName);
@@ -38,8 +61,10 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
         && !gameType
         && !gameManager
         && !controller
-        && !renderBlocks) return bytes;
-    final int[] changes = new int[20];
+        && !renderBlocks) {
+      return bytes;
+    }
+    final int[] changes = new int[BLOCK_FACE_CHECKS + 1];
     ClassReader reader = new ClassReader(bytes);
     ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
     reader.accept(
@@ -163,21 +188,51 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                 && !pickup
                 && !hotbar
                 && !tooltip
-                && !standardRender) return mv;
-            if (liquid) changes[17]++;
-            if (web) changes[18]++;
-            if (capabilities) changes[11]++;
-            if (managerMode) changes[12]++;
-            if (clientMode) changes[13]++;
-            if (inventory) changes[3]++;
-            if (guiClick) changes[4]++;
-            if (drop) changes[5]++;
-            if (entityCollision) changes[6]++;
-            if (collisionEligibility) changes[10]++;
-            if (pickup) changes[9]++;
-            if (tooltip) changes[8]++;
-            if (pressure) changes[0]++;
-            if (collisions) changes[1]++;
+                && !standardRender) {
+              return mv;
+            }
+            if (liquid) {
+              changes[LIQUID_CHECKS]++;
+            }
+            if (web) {
+              changes[WEB_COLLISION]++;
+            }
+            if (capabilities) {
+              changes[CAPABILITIES]++;
+            }
+            if (managerMode) {
+              changes[SERVER_GAME_MODE]++;
+            }
+            if (clientMode) {
+              changes[CLIENT_GAME_MODE]++;
+            }
+            if (inventory) {
+              changes[INVENTORY_PACKETS]++;
+            }
+            if (guiClick) {
+              changes[GUI_CLICK]++;
+            }
+            if (drop) {
+              changes[DROP_PACKET]++;
+            }
+            if (entityCollision) {
+              changes[ENTITY_COLLISIONS]++;
+            }
+            if (collisionEligibility) {
+              changes[COLLISION_ELIGIBILITY]++;
+            }
+            if (pickup) {
+              changes[PLAYER_PICKUP]++;
+            }
+            if (tooltip) {
+              changes[HUD_TOOLTIP]++;
+            }
+            if (pressure) {
+              changes[PRESSURE_PLATE]++;
+            }
+            if (collisions) {
+              changes[BLOCK_COLLISIONS]++;
+            }
             return new MethodVisitor(ASM4, mv) {
               @Override
               public void visitCode() {
@@ -200,31 +255,10 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                       "(Lnet/minecraft/world/EnumGameType;)V");
                 }
                 if (collisionEligibility || ladder || liquid || potionApplicable) {
-                  Label normal = new Label();
-                  mv.visitVarInsn(ALOAD, 0);
-                  mv.visitMethodInsn(
-                      INVOKESTATIC,
-                      "org/spectator164/SpectatorHooks",
-                      "isSpectator",
-                      "(Lnet/minecraft/entity/Entity;)Z");
-                  mv.visitJumpInsn(IFEQ, normal);
-                  mv.visitInsn(ICONST_0);
-                  mv.visitInsn(IRETURN);
-                  mv.visitLabel(normal);
-                  mv.visitFrame(F_SAME, 0, null, 0, null);
+                  skipForSpectator(0, ICONST_0);
                 }
                 if (instantPotion) {
-                  Label normal = new Label();
-                  mv.visitVarInsn(ALOAD, 2);
-                  mv.visitMethodInsn(
-                      INVOKESTATIC,
-                      "org/spectator164/SpectatorHooks",
-                      "isSpectator",
-                      "(Lnet/minecraft/entity/Entity;)Z");
-                  mv.visitJumpInsn(IFEQ, normal);
-                  mv.visitInsn(RETURN);
-                  mv.visitLabel(normal);
-                  mv.visitFrame(F_SAME, 0, null, 0, null);
+                  skipForSpectator(2, RETURN);
                 }
                 if (entityCollision) {
                   Label normal = new Label();
@@ -265,7 +299,9 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                 }
                 if (inventory || guiClick) {
                   Label normal = new Label();
-                  if (inventory) mv.visitVarInsn(ALOAD, 0);
+                  if (inventory) {
+                    mv.visitVarInsn(ALOAD, 0);
+                  }
                   mv.visitMethodInsn(
                       INVOKESTATIC,
                       inventory
@@ -279,21 +315,25 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                   mv.visitFrame(F_SAME, 0, null, 0, null);
                 }
                 if (pressure || collisions || pickup || web) {
-                  Label normal = new Label();
-                  mv.visitVarInsn(ALOAD, 0);
-                  mv.visitMethodInsn(
-                      INVOKESTATIC,
-                      "org/spectator164/SpectatorHooks",
-                      "isSpectator",
-                      "(Lnet/minecraft/entity/Entity;)Z");
-                  mv.visitJumpInsn(IFEQ, normal);
-                  if (pressure) {
-                    mv.visitInsn(ICONST_1);
-                    mv.visitInsn(IRETURN);
-                  } else mv.visitInsn(RETURN);
-                  mv.visitLabel(normal);
-                  mv.visitFrame(F_SAME, 0, null, 0, null);
+                  skipForSpectator(0, pressure ? ICONST_1 : RETURN);
                 }
+              }
+
+              private void skipForSpectator(int entityLocal, int result) {
+                Label normal = new Label();
+                mv.visitVarInsn(ALOAD, entityLocal);
+                mv.visitMethodInsn(
+                    INVOKESTATIC,
+                    "org/spectator164/SpectatorHooks",
+                    "isSpectator",
+                    "(Lnet/minecraft/entity/Entity;)Z");
+                mv.visitJumpInsn(IFEQ, normal);
+                if (result != RETURN) {
+                  mv.visitInsn(result);
+                }
+                mv.visitInsn(result == RETURN ? RETURN : IRETURN);
+                mv.visitLabel(normal);
+                mv.visitFrame(F_SAME, 0, null, 0, null);
               }
 
               @Override
@@ -322,7 +362,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                         || field.equals("showDebugProfilerChart")
                         || field.equals("field_74329_Q"))) {
                   boolean info = field.equals("showDebugInfo") || field.equals("field_74330_P");
-                  changes[info ? 14 : 15]++;
+                  changes[info ? DEBUG_INFO : DEBUG_PROFILER]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
                       "org/spectator164/ClientHooks",
@@ -333,13 +373,15 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                     && owner.equals("net/minecraft/entity/player/InventoryPlayer")
                     && (field.equals("currentItem") || field.equals("field_70461_c"))
                     && descriptor.equals("I")) {
-                  changes[7]++;
+                  changes[HOTBAR_SLOT]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
                       "org/spectator164/ClientHooks",
                       "selectHotbarSlot",
                       "(Lnet/minecraft/entity/player/InventoryPlayer;I)V");
-                } else super.visitFieldInsn(opcode, owner, field, descriptor);
+                } else {
+                  super.visitFieldInsn(opcode, owner, field, descriptor);
+                }
               }
 
               @Override
@@ -350,7 +392,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                     && owner.equals("net/minecraft/block/Block")
                     && (target.equals("shouldSideBeRendered") || target.equals("func_71877_c"))
                     && descriptor.equals("(Lnet/minecraft/world/IBlockAccess;IIII)Z")) {
-                  changes[19]++;
+                  changes[BLOCK_FACE_CHECKS]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
                       "org/spectator164/ClientHooks",
@@ -361,7 +403,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                     && owner.equals("org/lwjgl/input/Keyboard")
                     && target.equals("next")
                     && descriptor.equals("()Z")) {
-                  changes[16]++;
+                  changes[KEYBOARD_EVENT]++;
                   super.visitMethodInsn(
                       INVOKESTATIC, "org/spectator164/ClientHooks", "nextKeyboardEvent", "()Z");
                 } else if (particles
@@ -381,45 +423,53 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                     && (target.equals("getCollidingBoundingBoxes") || target.equals("func_72945_a"))
                     && descriptor.equals(
                         "(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/AxisAlignedBB;)Ljava/util/List;")) {
-                  changes[2]++;
+                  changes[MOVEMENT_COLLISIONS]++;
                   super.visitMethodInsn(
                       INVOKESTATIC,
                       "org/spectator164/SpectatorHooks",
                       "movementCollisions",
                       "(Lnet/minecraft/world/WorldServer;Lnet/minecraft/entity/Entity;Lnet/minecraft/util/AxisAlignedBB;)Ljava/util/List;");
-                } else super.visitMethodInsn(opcode, owner, target, descriptor);
+                } else {
+                  super.visitMethodInsn(opcode, owner, target, descriptor);
+                }
               }
             };
           }
         },
         0);
     if ((entity
-            && (changes[0] != 1
-                || changes[1] != 1
-                || changes[6] != 1
-                || changes[17] != 4
-                || changes[18] != 1))
-        || (server && (changes[2] != 2 || changes[3] != 3 || changes[5] != 1))
-        || (gui && changes[4] != 1)
-        || (minecart && changes[6] != 1)
-        || (playerClass && changes[9] != 1)
-        || (living && changes[10] != 2)
+            && (changes[PRESSURE_PLATE] != 1
+                || changes[BLOCK_COLLISIONS] != 1
+                || changes[ENTITY_COLLISIONS] != 1
+                || changes[LIQUID_CHECKS] != 4
+                || changes[WEB_COLLISION] != 1))
+        || (server
+            && (changes[MOVEMENT_COLLISIONS] != 2
+                || changes[INVENTORY_PACKETS] != 3
+                || changes[DROP_PACKET] != 1))
+        || (gui && changes[GUI_CLICK] != 1)
+        || (minecart && changes[ENTITY_COLLISIONS] != 1)
+        || (playerClass && changes[PLAYER_PICKUP] != 1)
+        || (living && changes[COLLISION_ELIGIBILITY] != 2)
         || (minecraft
-            && (changes[7] != 1 || changes[14] != 1 || changes[15] != 1 || changes[16] != 1))
-        || (forgeHud && changes[8] != 1)
-        || (gameType && changes[11] != 1)
-        || (gameManager && changes[12] != 1)
-        || (controller && changes[13] != 1)
-        || (renderBlocks && changes[19] != 18)) {
+            && (changes[HOTBAR_SLOT] != 1
+                || changes[DEBUG_INFO] != 1
+                || changes[DEBUG_PROFILER] != 1
+                || changes[KEYBOARD_EVENT] != 1))
+        || (forgeHud && changes[HUD_TOOLTIP] != 1)
+        || (gameType && changes[CAPABILITIES] != 1)
+        || (gameManager && changes[SERVER_GAME_MODE] != 1)
+        || (controller && changes[CLIENT_GAME_MODE] != 1)
+        || (renderBlocks && changes[BLOCK_FACE_CHECKS] != 18)) {
       throw new IllegalStateException(
           "Spectator164 could not apply the expected hooks to "
               + transformedName
               + ": "
-              + changes[0]
+              + changes[PRESSURE_PLATE]
               + ","
-              + changes[1]
+              + changes[BLOCK_COLLISIONS]
               + ","
-              + changes[2]);
+              + changes[MOVEMENT_COLLISIONS]);
     }
     System.out.println("Spectator164 hooks verified for " + transformedName);
     return writer.toByteArray();
