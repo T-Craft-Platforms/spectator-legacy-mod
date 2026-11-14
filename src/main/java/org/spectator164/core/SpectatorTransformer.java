@@ -24,6 +24,8 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
     final boolean gameManager = "net.minecraft.item.ItemInWorldManager".equals(transformedName);
     final boolean controller =
         "net.minecraft.client.multiplayer.PlayerControllerMP".equals(transformedName);
+    final boolean renderBlocks =
+        "net.minecraft.client.renderer.RenderBlocks".equals(transformedName);
     if (!entity
         && !server
         && !gui
@@ -35,8 +37,9 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
         && !forgeHud
         && !gameType
         && !gameManager
-        && !controller) return bytes;
-    final int[] changes = new int[19];
+        && !controller
+        && !renderBlocks) return bytes;
+    final int[] changes = new int[20];
     ClassReader reader = new ClassReader(bytes);
     ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
     reader.accept(
@@ -132,6 +135,14 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                 controller
                     && (method.equals("setGameType") || method.equals("func_78746_a"))
                     && desc.equals("(Lnet/minecraft/world/EnumGameType;)V");
+            final boolean standardRender =
+                renderBlocks
+                    && (method.equals("renderStandardBlockWithAmbientOcclusion")
+                        || method.equals("func_78578_a")
+                        || method.equals("renderStandardBlockWithAmbientOcclusionPartial")
+                        || method.equals("func_102027_b")
+                        || method.equals("renderStandardBlockWithColorMultiplier")
+                        || method.equals("func_78609_c"));
             if (!capabilities
                 && !managerMode
                 && !clientMode
@@ -151,7 +162,8 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                 && !collisionEligibility
                 && !pickup
                 && !hotbar
-                && !tooltip) return mv;
+                && !tooltip
+                && !standardRender) return mv;
             if (liquid) changes[17]++;
             if (web) changes[18]++;
             if (capabilities) changes[11]++;
@@ -333,7 +345,18 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
               @Override
               public void visitMethodInsn(
                   int opcode, String owner, String target, String descriptor) {
-                if (hotbar
+                if (standardRender
+                    && opcode == INVOKEVIRTUAL
+                    && owner.equals("net/minecraft/block/Block")
+                    && (target.equals("shouldSideBeRendered") || target.equals("func_71877_c"))
+                    && descriptor.equals("(Lnet/minecraft/world/IBlockAccess;IIII)Z")) {
+                  changes[19]++;
+                  super.visitMethodInsn(
+                      INVOKESTATIC,
+                      "org/spectator164/ClientHooks",
+                      "shouldRenderSide",
+                      "(Lnet/minecraft/block/Block;Lnet/minecraft/world/IBlockAccess;IIII)Z");
+                } else if (hotbar
                     && opcode == INVOKESTATIC
                     && owner.equals("org/lwjgl/input/Keyboard")
                     && target.equals("next")
@@ -386,7 +409,8 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
         || (forgeHud && changes[8] != 1)
         || (gameType && changes[11] != 1)
         || (gameManager && changes[12] != 1)
-        || (controller && changes[13] != 1)) {
+        || (controller && changes[13] != 1)
+        || (renderBlocks && changes[19] != 18)) {
       throw new IllegalStateException(
           "Spectator164 could not apply the expected hooks to "
               + transformedName

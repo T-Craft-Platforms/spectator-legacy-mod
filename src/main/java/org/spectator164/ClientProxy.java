@@ -355,6 +355,9 @@ public class ClientProxy extends CommonProxy implements ITickHandler {
       if (mc.theWorld == null) SpectatorMod.clearClientState();
     }
     boolean active = mc.thePlayer != null && SpectatorMod.active(mc.thePlayer);
+    if (!worldChanged && active != wasActive && mc.renderGlobal != null) {
+      mc.renderGlobal.loadRenderers();
+    }
     if (camera != null) {
       if (!active
           || camera.isDead
