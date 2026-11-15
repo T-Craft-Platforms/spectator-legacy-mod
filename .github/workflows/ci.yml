@@ -14,23 +14,32 @@ jobs:
       - uses: actions/checkout@v4
       - id: targets
         run: |
-          echo "matrix=$(python3 -c 'import json; print(json.dumps([k for k,v in json.load(open("versions.json"))["targets"].items() if v["status"] == "buildable"], separators=(",", ":")))')" >> "$GITHUB_OUTPUT"
+          python3 -m unittest discover -s scripts/tests -v
+          echo "matrix=$(python3 scripts/build.py matrix --status buildable)" >> "$GITHUB_OUTPUT"
   build:
     needs: targets
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        minecraft: ${{ fromJSON(needs.targets.outputs.matrix) }}
+        include: ${{ fromJSON(needs.targets.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '8'
-      - name: Install Gradle 3
+          java-version: ${{ matrix.java }}
+      - name: Install target Gradle
+        if: ${{ matrix.gradle != '' }}
+        env:
+          GRADLE_VERSION: ${{ matrix.gradle }}
         run: |
-          curl --fail --location --retry 3 -o "$RUNNER_TEMP/gradle.zip" https://services.gradle.org/distributions/gradle-3.0-bin.zip
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/gradle.zip" "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/gradle-3.0/bin" >> "$GITHUB_PATH"
-      - run: gradle setupCIWorkspace build "-PmcVersion=${{ matrix.minecraft }}" --no-daemon --stacktrace
+          echo "$RUNNER_TEMP/gradle-${GRADLE_VERSION}/bin" >> "$GITHUB_PATH"
+      - name: Prepare target-specific toolchain
+        if: ${{ matrix.setup != '' }}
+        env:
+          SETUP_SCRIPT: ${{ matrix.setup }}
+        run: python3 "$SETUP_SCRIPT"
+      - run: python3 scripts/build.py build "${{ matrix.minecraft }}"

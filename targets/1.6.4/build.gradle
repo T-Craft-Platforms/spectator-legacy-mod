@@ -29,11 +29,11 @@ if (!targets.containsKey(mcVersion)) {
     throw new GradleException("Unknown Minecraft version ${mcVersion}; choose ${targets.keySet()}")
 }
 def target = targets[mcVersion]
-if (target.status != 'buildable') {
+if (!(target.status in ['buildable', 'release-ready'])) {
     throw new GradleException("Minecraft ${mcVersion} is not buildable yet: ${target.note}")
 }
 buildDir = new File(repoRoot, "build/${mcVersion}")
-version = project.findProperty('modVersion') ?: '0.1.0-dev'
+version = project.findProperty('modVersion') ?: inventory.defaultModVersion
 group = 'ch.tcraft.spectatorlegacymod'
 archivesBaseName = "spectatorlegacy-mc${mcVersion}"
 minecraft {
@@ -47,7 +47,9 @@ def providers = [:]
 def selected = target.implementations.collect { name ->
     def implementation = inventory.implementations[name]
     if (implementation == null) throw new GradleException("Unknown implementation: ${name}")
+    if (!(mcVersion in implementation.compatibleTargets)) throw new GradleException("${name} is not validated for ${mcVersion}")
     implementation.provides.each { capability ->
+        if (!(capability in inventory.requiredCapabilities)) throw new GradleException("Unknown capability: ${capability}")
         if (providers.containsKey(capability)) throw new GradleException("Multiple providers for ${capability}")
         providers[capability] = name
     }
@@ -56,7 +58,8 @@ def selected = target.implementations.collect { name ->
 def missing = inventory.requiredCapabilities.findAll { !providers.containsKey(it) }
 if (!missing.empty) throw new GradleException("Missing capability providers: ${missing}")
 sourceSets.main.java.setSrcDirs([new File(repoRoot, 'common/src/main/java'), new File(projectDir, 'src/main/java')] + selected)
-sourceSets.main.resources.setSrcDirs([new File(projectDir, 'src/main/resources')])
+sourceSets.main.resources.setSrcDirs([new File(repoRoot, 'common/src/main/resources'), new File(projectDir, 'src/main/resources')])
+sourceSets.test.java.setSrcDirs([new File(repoRoot, 'common/src/test/java'), new File(projectDir, 'src/test/java')])
 
 downloadClient.url = new net.minecraftforge.gradle.delayed.DelayedString(
     project, "https://launcher.mojang.com/v1/objects/${target.client}/client.jar")
@@ -77,6 +80,7 @@ configurations {
 
 dependencies {
     javaFormatter 'com.google.googlejavaformat:google-java-format:1.7'
+    testCompile 'junit:junit:4.13.2'
 }
 
 task formatJava(type: JavaExec) {

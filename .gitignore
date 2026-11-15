@@ -1,6 +1,9 @@
 .gradle/
+.gradle-voldeloom/
 .mise/
 build/
 runs/
 .idea/
 /mise.local.toml
+__pycache__/
+*.pyc

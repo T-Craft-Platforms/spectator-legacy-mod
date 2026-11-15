@@ -7,9 +7,15 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import build
 
 ROOT = Path(__file__).resolve().parent.parent
 MARKER = '.spectatorlegacy-test-instance'
+# Prism's documented workaround for legacy SHA-1 signed Minecraft jars on modern Java 8.
+JAVA_SECURITY = ('jdk.certpath.disabledAlgorithms=MD2, MD5, SHA1 jdkCA & usage TLSServer, '
+                 'RSA keySize < 1024, DSA keySize < 1024, EC keySize < 224, include jdk.disabled.namedCurves\n'
+                 'jdk.jar.disabledAlgorithms=MD2, MD5, RSA keySize < 1024, '
+                 'DSA keySize < 1024, include jdk.disabled.namedCurves\n')
 
 
 def prism_root():
@@ -52,16 +58,11 @@ def main():
     if args.version not in targets:
         parser.error('Unknown Minecraft version. Choose: ' + ', '.join(targets))
     target = targets[args.version]
-    if target['status'] != 'buildable':
+    if target['status'] not in ('buildable', 'release-ready'):
         parser.error(args.version + ' is not buildable yet: ' + target['note'])
     launcher = None if args.prepare_only else prism_executable()
-    gradle = shutil.which('gradle') or shutil.which('gradle.bat')
-    if not gradle:
-        raise RuntimeError('Gradle is not on PATH; run this through mise.')
-    subprocess.run([gradle, 'clean', 'setupCIWorkspace', 'build', '-PmcVersion=' + args.version, '--no-daemon'], cwd=ROOT, check=True)
-    jars = list((ROOT / 'build' / args.version / 'libs').glob('spectatorlegacy-mc' + args.version + '-*.jar'))
-    if len(jars) != 1:
-        raise RuntimeError('Expected exactly one build jar; clean the target build directory and retry.')
+    build.run_target(args.version, 'clean-build')
+    jar = build.artifact_path(target, build.load_inventory()['defaultModVersion'])
     instance_id = 'spectatorlegacy-' + args.version
     instance = prism_root() / 'instances' / instance_id
     if instance.exists() and not (instance / MARKER).is_file():
@@ -70,15 +71,20 @@ def main():
     (instance / MARKER).write_text('Managed by Spectator Legacy\n', encoding='utf-8')
     config = instance / 'instance.cfg'
     if not config.exists():
-        config.write_text('[General]\nConfigVersion=1.3\nInstanceType=OneSix\nname=Spectator Legacy ' + args.version + '\nOverrideJavaLocation=false\nAutomaticJava=true\n', encoding='utf-8')
+        config.write_text('[General]\nConfigVersion=1.3\nInstanceType=OneSix\nname=Spectator Legacy ' + args.version + '\nOverrideJavaLocation=true\nAutomaticJava=true\nOverrideJavaArgs=true\nJvmArgs=-Djava.security.properties=java.security\n', encoding='utf-8')
     else:
         # Migrate the instance created by the first revision of this utility.
         java_home = os.environ.get('JAVA_HOME')
         text = config.read_text(encoding='utf-8')
         java = Path(java_home) / 'bin' / ('javaw.exe' if sys.platform == 'win32' else 'java') if java_home else None
         if java and 'JavaPath=' + java.as_posix() in text and 'OverrideJavaLocation=true' in text:
-            text = text.replace('OverrideJavaLocation=true', 'OverrideJavaLocation=false').replace('AutomaticJava=false', 'AutomaticJava=true')
-            config.write_text(text, encoding='utf-8')
+            text = text.replace('AutomaticJava=false', 'AutomaticJava=true')
+        # Preserve custom JVM arguments rather than replacing them.
+        if 'JvmArgs=\n' in text and 'OverrideJavaArgs=false' in text:
+            text = text.replace('JvmArgs=\n', 'JvmArgs=-Djava.security.properties=java.security\n').replace('OverrideJavaArgs=false', 'OverrideJavaArgs=true')
+        elif 'JvmArgs=' not in text and 'OverrideJavaArgs=' not in text:
+            text = text.replace('[General]\n', '[General]\nOverrideJavaArgs=true\nJvmArgs=-Djava.security.properties=java.security\n', 1)
+        config.write_text(text, encoding='utf-8')
     pack = {'formatVersion': 1, 'components': [
         {'uid': 'net.minecraft', 'version': args.version, 'important': True},
         {'uid': 'net.minecraftforge', 'version': target.get('prismForge', target['forge'])},
@@ -86,7 +92,10 @@ def main():
     (instance / 'mmc-pack.json').write_text(json.dumps(pack, indent=2) + '\n', encoding='utf-8')
     mods = instance / '.minecraft' / 'mods'
     mods.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(jars[0], mods / 'spectatorlegacy-dev.jar')
+    security = instance / '.minecraft' / 'java.security'
+    if not security.exists():
+        security.write_text(JAVA_SECURITY, encoding='utf-8')
+    shutil.copy2(jar, mods / 'spectatorlegacy-dev.jar')
     print('Prepared Prism instance:', instance, flush=True)
     if launcher:
         subprocess.run([launcher, '--dir', str(prism_root()), '--launch', instance_id], check=True)
@@ -95,6 +104,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except (RuntimeError, OSError, subprocess.CalledProcessError) as exc:
+    except (RuntimeError, ValueError, OSError, subprocess.CalledProcessError) as exc:
         print('Prism test instance:', exc, file=sys.stderr)
         sys.exit(1)

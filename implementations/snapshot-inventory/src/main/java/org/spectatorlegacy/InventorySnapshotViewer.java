@@ -169,7 +169,7 @@ final class InventorySnapshotViewer {
       return;
     }
     int size = in.readUnsignedByte();
-    if (size < 9 || size > 54 || size % 9 != 0) {
+    if (!SnapshotLayout.validDisplaySize(size)) {
       return;
     }
     InventoryBasic snapshot = new InventoryBasic(title, customName, size);

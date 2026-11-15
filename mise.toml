@@ -6,16 +6,16 @@ gradle = '3.0.0'
 GRADLE_USER_HOME = '{{config_root}}/.gradle'
 
 [tasks.setup]
-description = 'Prepare the Forge 1.6.4 development workspace'
-run = 'gradle setupCIWorkspace --no-daemon'
+description = 'Prepare a target development workspace (default: 1.6.4)'
+run = 'python scripts/build.py setup'
 
 [tasks.build]
-description = 'Build the default Minecraft port (pass -PmcVersion=... to select another)'
-run = 'gradle build --no-daemon --stacktrace'
+description = 'Build a Minecraft target (default: 1.6.4)'
+run = 'python scripts/build.py build'
 
 [tasks.format]
 description = 'Format Java sources with the project-pinned formatter'
-run = 'gradle formatJava --no-daemon'
+run = 'python scripts/build.py format'
 
 [tasks.prism]
 description = 'Build, prepare and launch a dedicated Prism test instance (argument: Minecraft version)'

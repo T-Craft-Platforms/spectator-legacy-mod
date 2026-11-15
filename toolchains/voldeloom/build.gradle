@@ -1,0 +1,70 @@
+def repoRoot = projectDir.parentFile.parentFile
+def mcVersion = projectDir.name
+def inventory = new groovy.json.JsonSlurper().parse(new File(repoRoot, 'versions.json'))
+def target = inventory.targets[mcVersion]
+if (!(target.status in ['buildable', 'release-ready'])) {
+    throw new GradleException("Minecraft ${mcVersion} is not buildable: ${target.note}")
+}
+target.implementations.each { name ->
+    def implementation = inventory.implementations[name]
+    if (implementation == null || !(mcVersion in implementation.compatibleTargets)) {
+        throw new GradleException("${name} is not validated for ${mcVersion}")
+    }
+}
+def modVersion = project.findProperty('modVersion') ?: inventory.defaultModVersion
+version = modVersion
+group = 'ch.tcraft.spectatorlegacymod'
+buildDir = new File(repoRoot, "build/${mcVersion}")
+archivesBaseName = "spectatorlegacy-mc${mcVersion}"
+sourceCompatibility = '1.6'
+targetCompatibility = '1.6'
+
+repositories { mavenCentral(); maven { url 'https://maven.minecraftforge.net' }; maven { url 'https://libraries.minecraft.net' } }
+configurations { javaFormatter }
+dependencies {
+    minecraft "com.mojang:minecraft:${mcVersion}"
+    if (mcVersion == '1.6.1') {
+        forge files(new File(repoRoot, '.gradle/legacy-forge/forge-1.6.1-v1.jar'))
+        compileOnly 'org.ow2.asm:asm-all:4.1'
+        compileOnly 'net.minecraft:launchwrapper:1.8'
+    } else {
+        forge "net.minecraftforge:forge:${mcVersion}-${target.forge}:universal"
+    }
+    mappings files(new File(repoRoot, ".gradle/legacy-mappings/forge-${mcVersion}-mappings-v1.zip"))
+    testImplementation 'junit:junit:4.13.2'
+    javaFormatter 'com.google.googlejavaformat:google-java-format:1.7'
+}
+
+def generated = new File(buildDir, 'generated/versioned')
+tasks.register('prepareSources', Sync) {
+    inputs.property 'modVersion', modVersion
+    inputs.property 'mcVersion', mcVersion
+    target.implementations.each { name -> from new File(repoRoot, inventory.implementations[name].path + '/src/main/java') }
+    from new File(repoRoot, 'common/src/main/java')
+    from new File(projectDir, 'src/main/java')
+    into generated
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    filesMatching('**/SpectatorMod.java') { filter { it.replace('@MOD_VERSION@', modVersion.toString()) } }
+    filesMatching('**/SpectatorCore.java') { filter { it.replace('@MC_VERSION@', mcVersion) } }
+}
+sourceSets.main.java.setSrcDirs([generated])
+sourceSets.main.resources.setSrcDirs([new File(repoRoot, 'common/src/main/resources'), new File(projectDir, 'src/main/resources')])
+sourceSets.test.java.setSrcDirs([new File(repoRoot, 'common/src/test/java')])
+compileJava.dependsOn tasks.named('prepareSources')
+processResources {
+    inputs.property 'modVersion', modVersion
+    inputs.property 'mcVersion', mcVersion
+    filesMatching('mcmod.info') { expand modVersion: modVersion, mcVersion: mcVersion }
+}
+jar {
+    manifest { attributes 'FMLCorePlugin': 'org.spectatorlegacy.core.SpectatorCore', 'FMLCorePluginContainsFMLMod': 'true' }
+}
+tasks.register('formatJava', JavaExec) {
+    classpath = configurations.javaFormatter
+    mainClass = 'com.google.googlejavaformat.java.Main'
+    args '--replace'
+    def roots = target.implementations.collect { new File(repoRoot, inventory.implementations[it].path + '/src/main/java') }
+    roots += [new File(repoRoot, 'common/src/main/java'), new File(projectDir, 'src/main/java')]
+    def sources = roots.collectMany { root -> fileTree(root) { include '**/*.java' }.files }.sort { a, b -> a.path <=> b.path }
+    args sources.collect { it.absolutePath }
+}

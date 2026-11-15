@@ -1,0 +1,7 @@
+# Maintaining Minecraft targets
+
+All targets live on main. For every feature or bug fix, inspect `versions.json` and `docs/compatibility.md`, assess all buildable and release-ready targets, and update common code or each applicable implementation. Explain and record differences or unfinished work. Do not treat one Minecraft target as the specification for other versions.
+
+Keep `common` independent of Minecraft, Forge, and loader APIs. Select exactly one provider per required capability for every buildable target, compile Minecraft-dependent code with that target's own mappings, and share implementations only when compatibility is demonstrated. Run the composition tests and affected target builds. Do not promote a target to release-ready without the documented client and server checks.
+
+Name implementations for their purpose and, when necessary, the specific API or behavior that distinguishes them (for example `fml-core-without-sorting-index`). Do not use chronological revision numbers to distinguish parallel implementations. List exact assessed target IDs in `compatibleTargets`; a name never implies support for an entire release family. When APIs diverge, including within a family, select separate components or introduce a narrow adapter instead of copying the whole port. Assess blocked targets too, and document unverified behavior and blockers. Follow the 1.3–1.7 roadmap in `docs/compatibility.md`.

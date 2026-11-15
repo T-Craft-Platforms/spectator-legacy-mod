@@ -1,6 +1,7 @@
 package org.spectatorlegacy.core;
 
 import net.minecraft.launchwrapper.IClassTransformer;
+import cpw.mods.fml.common.asm.transformers.deobf.FMLDeobfuscatingRemapper;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -30,7 +31,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
   private static final int WEB_COLLISION = 18;
   private static final int BLOCK_FACE_CHECKS = 19;
 
-  public byte[] transform(String name, String transformedName, byte[] bytes) {
+  public byte[] transform(final String name, String transformedName, byte[] bytes) {
     if (bytes == null) {
       return null;
     }
@@ -71,8 +72,11 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
         new ClassVisitor(ASM4, writer) {
           @Override
           public MethodVisitor visitMethod(
-              int access, final String method, String desc, String signature, String[] exceptions) {
-            MethodVisitor mv = super.visitMethod(access, method, desc, signature, exceptions);
+              int access, final String rawMethod, String rawDesc, String signature, String[] exceptions) {
+            MethodVisitor mv = super.visitMethod(access, rawMethod, rawDesc, signature, exceptions);
+            FMLDeobfuscatingRemapper remapper = FMLDeobfuscatingRemapper.INSTANCE;
+            final String method = remapper.mapMethodName(name.replace('.', '/'), rawMethod, rawDesc);
+            final String desc = remapper.mapMethodDesc(rawDesc);
             final boolean pressure =
                 entity
                     && desc.equals("()Z")
@@ -352,7 +356,11 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
 
               @Override
               public void visitFieldInsn(
-                  int opcode, String owner, String field, String descriptor) {
+                  int opcode, String rawOwner, String rawField, String rawDescriptor) {
+                FMLDeobfuscatingRemapper remapper = FMLDeobfuscatingRemapper.INSTANCE;
+                String owner = remapper.mapType(rawOwner);
+                String field = remapper.mapFieldName(rawOwner, rawField, rawDescriptor);
+                String descriptor = remapper.mapDesc(rawDescriptor);
                 if (hotbar
                     && opcode == PUTFIELD
                     && owner.equals("net/minecraft/client/settings/GameSettings")
@@ -380,13 +388,17 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                       "selectHotbarSlot",
                       "(Lnet/minecraft/entity/player/InventoryPlayer;I)V");
                 } else {
-                  super.visitFieldInsn(opcode, owner, field, descriptor);
+                  super.visitFieldInsn(opcode, rawOwner, rawField, rawDescriptor);
                 }
               }
 
               @Override
               public void visitMethodInsn(
-                  int opcode, String owner, String target, String descriptor) {
+                  int opcode, String rawOwner, String rawTarget, String rawDescriptor) {
+                FMLDeobfuscatingRemapper remapper = FMLDeobfuscatingRemapper.INSTANCE;
+                String owner = remapper.mapType(rawOwner);
+                String target = remapper.mapMethodName(rawOwner, rawTarget, rawDescriptor);
+                String descriptor = remapper.mapMethodDesc(rawDescriptor);
                 if (standardRender
                     && opcode == INVOKEVIRTUAL
                     && owner.equals("net/minecraft/block/Block")
@@ -430,7 +442,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
                       "movementCollisions",
                       "(Lnet/minecraft/world/WorldServer;Lnet/minecraft/entity/Entity;Lnet/minecraft/util/AxisAlignedBB;)Ljava/util/List;");
                 } else {
-                  super.visitMethodInsn(opcode, owner, target, descriptor);
+                  super.visitMethodInsn(opcode, rawOwner, rawTarget, rawDescriptor);
                 }
               }
             };
@@ -465,11 +477,7 @@ public final class SpectatorTransformer implements IClassTransformer, Opcodes {
           "SpectatorLegacy could not apply the expected hooks to "
               + transformedName
               + ": "
-              + changes[PRESSURE_PLATE]
-              + ","
-              + changes[BLOCK_COLLISIONS]
-              + ","
-              + changes[MOVEMENT_COLLISIONS]);
+              + java.util.Arrays.toString(changes));
     }
     System.out.println("SpectatorLegacy hooks verified for " + transformedName);
     return writer.toByteArray();

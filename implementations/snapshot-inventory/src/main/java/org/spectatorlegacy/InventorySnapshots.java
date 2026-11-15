@@ -177,8 +177,8 @@ final class InventorySnapshots {
   }
 
   private static void sendChestSnapshot(EntityPlayerMP player, IInventory inventory) {
-    int count = Math.min(inventory.getSizeInventory(), 54);
-    int size = Math.max(9, ((count + 8) / 9) * 9);
+    int count = SnapshotLayout.itemCount(inventory.getSizeInventory());
+    int size = SnapshotLayout.displaySize(count);
     try {
       ByteArrayOutputStream bytes = new ByteArrayOutputStream();
       DataOutputStream out = new DataOutputStream(bytes);

@@ -1,8 +1,229 @@
 {
+  "defaultModVersion": "0.1.0-dev",
+  "requiredCapabilities": [
+    "spectator",
+    "camera",
+    "inventory",
+    "network",
+    "hooks"
+  ],
+  "toolchains": {
+    "forgegradle-1-java8-gradle3": {
+      "java": "8",
+      "gradle": "3.0",
+      "versionArgument": "-PmodVersion={modVersion}",
+      "commands": {
+        "setup": [
+          "gradle",
+          "setupCIWorkspace",
+          "--no-daemon"
+        ],
+        "build": [
+          "gradle",
+          "setupCIWorkspace",
+          "build",
+          "--no-daemon"
+        ],
+        "clean-build": [
+          "gradle",
+          "clean",
+          "setupCIWorkspace",
+          "build",
+          "--no-daemon"
+        ],
+        "format": [
+          "gradle",
+          "formatJava",
+          "--no-daemon"
+        ]
+      }
+    },
+    "voldeloom-2.4-java8-gradle7": {
+      "java": "8",
+      "versionArgument": "-PmodVersion={modVersion}",
+      "prepare": "legacy-mappings",
+      "commands": {
+        "setup": [
+          "java",
+          "-cp",
+          "../../toolchains/voldeloom/gradle-wrapper.jar",
+          "org.gradle.wrapper.GradleWrapperMain",
+          "help",
+          "--no-daemon"
+        ],
+        "build": [
+          "java",
+          "-cp",
+          "../../toolchains/voldeloom/gradle-wrapper.jar",
+          "org.gradle.wrapper.GradleWrapperMain",
+          "build",
+          "--no-daemon"
+        ],
+        "clean-build": [
+          "java",
+          "-cp",
+          "../../toolchains/voldeloom/gradle-wrapper.jar",
+          "org.gradle.wrapper.GradleWrapperMain",
+          "clean",
+          "build",
+          "--no-daemon"
+        ],
+        "format": [
+          "java",
+          "-cp",
+          "../../toolchains/voldeloom/gradle-wrapper.jar",
+          "org.gradle.wrapper.GradleWrapperMain",
+          "formatJava",
+          "--no-daemon"
+        ]
+      }
+    }
+  },
+  "implementations": {
+    "forge-fml-spectator": {
+      "path": "implementations/forge-fml-spectator",
+      "provides": [
+        "spectator",
+        "camera",
+        "network"
+      ],
+      "compatibleTargets": [
+        "1.6.2",
+        "1.6.3",
+        "1.6.4"
+      ]
+    },
+    "fml-core-without-sorting-index": {
+      "path": "implementations/fml-core-without-sorting-index",
+      "provides": [],
+      "compatibleTargets": [
+        "1.6.2",
+        "1.6.3"
+      ]
+    },
+    "fml-spectator-transformer": {
+      "path": "implementations/fml-spectator-transformer",
+      "provides": [
+        "hooks"
+      ],
+      "compatibleTargets": [
+        "1.6.2",
+        "1.6.3",
+        "1.6.4"
+      ]
+    },
+    "snapshot-inventory": {
+      "path": "implementations/snapshot-inventory",
+      "provides": [
+        "inventory"
+      ],
+      "compatibleTargets": [
+        "1.6.2",
+        "1.6.3",
+        "1.6.4"
+      ]
+    },
+    "spectator-packet-protocol": {
+      "path": "implementations/spectator-packet-protocol",
+      "provides": [],
+      "compatibleTargets": [
+        "1.6.2",
+        "1.6.3",
+        "1.6.4"
+      ]
+    }
+  },
   "targets": {
-    "1.6.1": {"forge": "8.9.0.775", "client": "17e2c28fb54666df5640b2c822ea8042250ef592", "server": "0252918a5f9d47e3c6eb1dfec02134d1374a89b4", "status": "blocked", "note": "Forge has no userdev package for this build; an older development toolchain and a port are required."},
-    "1.6.2": {"forge": "9.10.1.871", "client": "b6cb68afde1d9cf4a20cbf27fa90d0828bf440a4", "server": "01b6ea555c6978e6713e2a2dfd7fe19b1449ca54", "status": "blocked", "note": "Forge has no userdev package for this build; an older development toolchain and a port are required."},
-    "1.6.3": {"forge": "9.11.0.878", "client": "f9af8a0a0fe24c891c4175a07e9473a92dc71c1a", "server": "5a4c69bdf7c4a9aa9580096805d8497ba7721e05", "status": "blocked", "note": "Minecraft 1.6.3 is a pre-release; Forge has no userdev package for this build, so an older development toolchain and a port are required."},
-    "1.6.4": {"forge": "9.11.1.964", "prismForge": "9.11.1.1345", "client": "1703704407101cf72bd88e68579e3696ce733ecd", "server": "050f93c1f3fe9e2052398f7bd6aca10c63d64a87", "status": "buildable", "note": "Builds against Forge 964 userdev; Prism uses Forge 1345. Interactive client and server gameplay verification is pending."}
+    "1.6.1": {
+      "forge": "8.9.0.775",
+      "client": "17e2c28fb54666df5640b2c822ea8042250ef592",
+      "server": "0252918a5f9d47e3c6eb1dfec02134d1374a89b4",
+      "forgeSourceSha256": "c77532bc56ef46b2e214b90ba0b2e765f94aca17caef1e685eb580eb04e1da45",
+      "forgeUniversalSha256": "9cc7b259177c4e4c1b0c088475723a1c2d1f9a77d47602be1a6b9aea2af0f8da",
+      "status": "blocked",
+      "releaseReady": false,
+      "buildDir": "targets/1.6.1",
+      "toolchain": "voldeloom-2.4-java8-gradle7",
+      "implementations": [
+        "forge-fml-spectator",
+        "fml-spectator-transformer",
+        "snapshot-inventory",
+        "spectator-packet-protocol"
+      ],
+      "artifact": {
+        "path": "build/1.6.1/libs/spectatorlegacy-mc1.6.1-{modVersion}.jar",
+        "modClass": "org/spectatorlegacy/SpectatorMod.class",
+        "corePlugin": true
+      },
+      "note": "Build tooling prepared, but 1.6.1 needs different GUI, mouse and rendering hooks and cannot yet compile the shared implementation."
+    },
+    "1.6.2": {
+      "forge": "9.10.1.871",
+      "client": "b6cb68afde1d9cf4a20cbf27fa90d0828bf440a4",
+      "server": "01b6ea555c6978e6713e2a2dfd7fe19b1449ca54",
+      "forgeSourceSha256": "e2c1c00ff411f7c144f636f3593bb630d4c538d80d7a2a38fb137c7dda62a2ff",
+      "status": "buildable",
+      "releaseReady": false,
+      "buildDir": "targets/1.6.2",
+      "toolchain": "voldeloom-2.4-java8-gradle7",
+      "implementations": [
+        "forge-fml-spectator",
+        "fml-core-without-sorting-index",
+        "fml-spectator-transformer",
+        "snapshot-inventory",
+        "spectator-packet-protocol"
+      ],
+      "artifact": {
+        "path": "build/1.6.2/libs/spectatorlegacy-mc1.6.2-{modVersion}.jar",
+        "modClass": "org/spectatorlegacy/SpectatorMod.class",
+        "corePlugin": true
+      },
+      "note": "Experimental port; client and server startup verified, gameplay and multiplayer checks pending."
+    },
+    "1.6.3": {
+      "forge": "9.11.0.878",
+      "client": "f9af8a0a0fe24c891c4175a07e9473a92dc71c1a",
+      "server": "5a4c69bdf7c4a9aa9580096805d8497ba7721e05",
+      "forgeSourceSha256": "601f4eba90d2e7021f6e979494af6d99b1eda3cbfbe1add1c0a6a6ad084a2715",
+      "status": "buildable",
+      "releaseReady": false,
+      "buildDir": "targets/1.6.3",
+      "toolchain": "voldeloom-2.4-java8-gradle7",
+      "implementations": [
+        "forge-fml-spectator",
+        "fml-core-without-sorting-index",
+        "fml-spectator-transformer",
+        "snapshot-inventory",
+        "spectator-packet-protocol"
+      ],
+      "artifact": {
+        "path": "build/1.6.3/libs/spectatorlegacy-mc1.6.3-{modVersion}.jar",
+        "modClass": "org/spectatorlegacy/SpectatorMod.class",
+        "corePlugin": true
+      },
+      "note": "Experimental pre-release port; client and server startup verified, gameplay and multiplayer checks pending."
+    },
+    "1.6.4": {
+      "forge": "9.11.1.964",
+      "prismForge": "9.11.1.1345",
+      "client": "1703704407101cf72bd88e68579e3696ce733ecd",
+      "server": "050f93c1f3fe9e2052398f7bd6aca10c63d64a87",
+      "status": "buildable",
+      "releaseReady": false,
+      "buildDir": "targets/1.6.4",
+      "toolchain": "forgegradle-1-java8-gradle3",
+      "implementations": [
+        "forge-fml-spectator",
+        "fml-spectator-transformer",
+        "snapshot-inventory",
+        "spectator-packet-protocol"
+      ],
+      "artifact": {
+        "path": "build/1.6.4/libs/spectatorlegacy-mc1.6.4-{modVersion}.jar",
+        "modClass": "org/spectatorlegacy/SpectatorMod.class",
+        "corePlugin": true
+      },
+      "note": "Builds against Forge 964 userdev; client and server startup verified with Forge 1345. Interactive gameplay verification is pending."
+    }
   }
 }
