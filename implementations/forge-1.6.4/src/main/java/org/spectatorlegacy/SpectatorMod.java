@@ -41,7 +41,7 @@ import net.minecraftforge.event.entity.player.EntityInteractEvent;
 import net.minecraftforge.event.entity.player.EntityItemPickupEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 
-@Mod(modid = "spectatorlegacy", name = "SpectatorLegacy", version = "0.1.0-dev")
+@Mod(modid = "spectatorlegacy", name = "SpectatorLegacy", version = "@MOD_VERSION@")
 @NetworkMod(
     clientSideRequired = true,
     serverSideRequired = true,

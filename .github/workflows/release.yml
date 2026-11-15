@@ -1,75 +1,54 @@
 name: Release
-
 on:
   push:
-    tags:
-      - '*'
-
+    tags: ['v*']
 permissions:
   contents: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Check for a semantic version tag
-        id: tag
+      - uses: actions/checkout@v4
+      - name: Validate release tag
         env:
           TAG: ${{ github.ref_name }}
         run: |
           python3 - <<'PY'
-          import os
-          import re
-
+          import os, re
           tag = os.environ['TAG']
-          semver = r'v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
-          match = re.fullmatch(semver, tag, flags=re.ASCII)
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              print('valid=' + str(bool(match)).lower(), file=output)
-              print('prerelease=' + str(bool(match and match.group(4))).lower(), file=output)
+          if not re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?', tag):
+              raise SystemExit('Invalid release tag: ' + tag)
           PY
-
-      - uses: actions/checkout@v4
-        if: steps.tag.outputs.valid == 'true'
-
       - uses: actions/setup-java@v4
-        if: steps.tag.outputs.valid == 'true'
         with:
           distribution: temurin
           java-version: '8'
-
-      - name: Install Gradle 3.0
-        if: steps.tag.outputs.valid == 'true'
+      - name: Install Gradle 3
         run: |
-          curl --fail --location --retry 3 --output gradle.zip https://services.gradle.org/distributions/gradle-3.0-bin.zip
-          unzip -q gradle.zip -d "$RUNNER_TEMP"
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/gradle.zip" https://services.gradle.org/distributions/gradle-3.0-bin.zip
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-3.0/bin" >> "$GITHUB_PATH"
-
-      - name: Build jar
-        if: steps.tag.outputs.valid == 'true'
+      - name: Build every buildable port
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          gradle setupCIWorkspace --no-daemon
-          gradle clean build --no-daemon
-          shopt -s nullglob
-          jars=(build/libs/spectatorlegacymod-*.jar)
-          if (( ${#jars[@]} == 0 )); then
-            echo "No spectatorlegacymod jar found in build/libs" >&2
-            exit 1
-          fi
-          cp "${jars[0]}" spectatorlegacy.jar
-
-      - name: Publish release asset
-        if: steps.tag.outputs.valid == 'true'
+          set -euo pipefail
+          mkdir dist
+          mapfile -t targets < <(python3 -c 'import json; print("\n".join(k for k,v in json.load(open("versions.json"))["targets"].items() if v["status"] == "buildable"))')
+          test "${#targets[@]}" -gt 0
+          for mc in "${targets[@]}"; do
+            gradle clean setupCIWorkspace build "-PmcVersion=$mc" "-PmodVersion=${TAG#v}" --no-daemon
+            shopt -s nullglob
+            jars=(build/"$mc"/libs/spectatorlegacy-mc"$mc"-*.jar)
+            test "${#jars[@]}" -eq 1
+            cp "${jars[0]}" "dist/spectatorlegacy-${TAG#v}-mc${mc}.jar"
+          done
+      - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
         run: |
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            args=(--verify-tag --generate-notes)
-            if [[ "$PRERELEASE" == true ]]; then
-              args+=(--prerelease)
-            fi
-            gh release create "$TAG" "${args[@]}"
-          fi
-          gh release upload "$TAG" spectatorlegacy.jar --clobber
+          set -euo pipefail
+          args=(--verify-tag --generate-notes --draft)
+          [[ "$TAG" != *-* ]] || args+=(--prerelease)
+          gh release create "$TAG" "${args[@]}" dist/*.jar

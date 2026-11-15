@@ -5,8 +5,8 @@
       "modid": "spectatorlegacy",
       "name": "SpectatorLegacy",
       "description": "Brings spectator mode to legacy versions of Minecraft, with free flight, camera following, player teleportation, and read-only inventory previews. Install on both the client and server.",
-      "version": "0.1.0",
-      "mcversion": "1.6.4",
+      "version": "${modVersion}",
+      "mcversion": "${mcVersion}",
       "url": "https://github.com/T-Craft-Platforms/spectator-legacy-mod",
       "authorList": [
         "TD99"

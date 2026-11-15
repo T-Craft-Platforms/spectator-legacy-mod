@@ -1,0 +1,36 @@
+name: Build
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: targets
+        run: |
+          echo "matrix=$(python3 -c 'import json; print(json.dumps([k for k,v in json.load(open("versions.json"))["targets"].items() if v["status"] == "buildable"], separators=(",", ":")))')" >> "$GITHUB_OUTPUT"
+  build:
+    needs: targets
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - name: Install Gradle 3
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/gradle.zip" https://services.gradle.org/distributions/gradle-3.0-bin.zip
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-3.0/bin" >> "$GITHUB_PATH"
+      - run: gradle setupCIWorkspace build "-PmcVersion=${{ matrix.minecraft }}" --no-daemon --stacktrace

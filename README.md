@@ -6,6 +6,18 @@ While spectating, move in flight and scroll to change flying speed. Double-tap f
 
 The mod bypasses the server's collision checks for spectator movement, prevents spectators from triggering pressure plates and tripwire, and suppresses player-generated vanilla particles and the client block overlay. The implementation uses a Forge core plugin and may conflict with other mods that modify the same methods. Camera behavior and rendering have not yet been verified in an interactive Minecraft client. Later Minecraft versions' entity-specific spectator shaders are not available in 1.6.4.
 
-Install [mise](https://mise.jdx.dev/), then run `mise install`, `mise run setup`, and `mise run build` in the project directory. The resulting jar is in `build/libs`. The project pins Java 8 and Gradle 3 and stores the Gradle cache in the project. Recent IntelliJ versions do not support importing Gradle this old; use the terminal build.
+## Minecraft versions
+
+Minecraft 1.6.4 builds against Forge 9.11.1.964; the Prism test instance uses Forge 9.11.1.1345, which Prism lists for installation. Compatibility with that runtime and interactive client and server gameplay still need verification. Forge builds also exist for 1.6.1, 1.6.2 and the 1.6.3 pre-release, but those versions are not supported yet: their Forge downloads lack the userdev package required by this ForgeGradle build. See `versions.json` for the exact targets and status. Do not use the 1.6.4 jar on another Minecraft version.
+
+## Build and test
+
+Install [mise](https://mise.jdx.dev/) and Python 3, then run `mise install`, `mise run setup`, and `mise run build`. The 1.6.4 jar is in `build/1.6.4/libs`. The project pins Java 8 and Gradle 3 and stores the Gradle cache in the project. Recent IntelliJ versions do not support importing Gradle this old; use the terminal build.
+
+Install Prism Launcher, enable its automatic Mojang Java downloads, and sign in to a Minecraft account. `mise run prism -- 1.6.4` builds the jar, creates or updates a dedicated `spectatorlegacy-1.6.4` instance with the selected Forge version, and launches it using Prism's automatic Java selection. `mise run prism:prepare -- 1.6.4` prepares the instance without launching. Existing worlds and unrelated mods in the managed instance are preserved. The task refuses to modify an existing instance with the same name unless it created it. On systems where Prism cannot be found, set `PRISM_LAUNCHER` to the executable; set `PRISM_DATA_DIR` to use a non-default Prism data directory. Prism may prompt for login or downloads on first launch.
+
+Prism can cache instance settings while it is open. Close it before running the task if it does not pick up a newly created or changed instance configuration. If Forge reports invalid Minecraft certificates with a modern Java runtime, use Prism's automatic Mojang Java runtime as described in its [troubleshooting guide](https://prismlauncher.org/wiki/overview/troubleshooting/#very-old-forge-modpacks-with-modern-java-8-runtimes).
+
+The shared implementation is under `src/`; version-specific core-plugin entry points are under `versions/`. CI builds every target marked buildable in `versions.json`. A version tag creates a draft GitHub release containing a separately named jar for each buildable target.
 
 

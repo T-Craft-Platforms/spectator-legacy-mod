@@ -1,0 +1,96 @@
+buildscript {
+    repositories {
+        maven { url 'https://maven.minecraftforge.net' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:1.0-SNAPSHOT'
+    }
+}
+
+if (GradleVersion.current() != GradleVersion.version('3.0')) {
+    throw new GradleException('This legacy Forge build requires Gradle 3.0 and Java 8. Run: mise run build')
+}
+if (JavaVersion.current() != JavaVersion.VERSION_1_8) {
+    throw new GradleException('This legacy Forge build requires Java 8. Run: mise run build')
+}
+apply plugin: 'forge'
+
+// ForgeGradle 1.0 also adds an obsolete HTTP repository; provide its HTTPS replacement.
+repositories {
+    maven { url 'https://maven.minecraftforge.net' }
+}
+
+def repoRoot = projectDir.parentFile.parentFile
+def mcVersion = '1.6.4'
+def inventory = new groovy.json.JsonSlurper().parse(new File(repoRoot, 'versions.json'))
+def targets = inventory.targets
+if (!targets.containsKey(mcVersion)) {
+    throw new GradleException("Unknown Minecraft version ${mcVersion}; choose ${targets.keySet()}")
+}
+def target = targets[mcVersion]
+if (target.status != 'buildable') {
+    throw new GradleException("Minecraft ${mcVersion} is not buildable yet: ${target.note}")
+}
+buildDir = new File(repoRoot, "build/${mcVersion}")
+version = project.findProperty('modVersion') ?: '0.1.0-dev'
+group = 'ch.tcraft.spectatorlegacymod'
+archivesBaseName = "spectatorlegacy-mc${mcVersion}"
+minecraft {
+    version = "${mcVersion}-${target.forge}"
+    replace '@MOD_VERSION@', project.version
+    replaceIn 'SpectatorMod.java'
+}
+
+// Sources are composed explicitly; every capability must have exactly one provider.
+def providers = [:]
+def selected = target.implementations.collect { name ->
+    def implementation = inventory.implementations[name]
+    if (implementation == null) throw new GradleException("Unknown implementation: ${name}")
+    implementation.provides.each { capability ->
+        if (providers.containsKey(capability)) throw new GradleException("Multiple providers for ${capability}")
+        providers[capability] = name
+    }
+    new File(repoRoot, implementation.path + '/src/main/java')
+}
+def missing = inventory.requiredCapabilities.findAll { !providers.containsKey(it) }
+if (!missing.empty) throw new GradleException("Missing capability providers: ${missing}")
+sourceSets.main.java.setSrcDirs([new File(repoRoot, 'common/src/main/java'), new File(projectDir, 'src/main/java')] + selected)
+sourceSets.main.resources.setSrcDirs([new File(projectDir, 'src/main/resources')])
+
+downloadClient.url = new net.minecraftforge.gradle.delayed.DelayedString(
+    project, "https://launcher.mojang.com/v1/objects/${target.client}/client.jar")
+downloadServer.url = new net.minecraftforge.gradle.delayed.DelayedString(
+    project, "https://launcher.mojang.com/v1/objects/${target.server}/server.jar")
+
+processResources {
+    inputs.property 'modVersion', project.version
+    inputs.property 'mcVersion', mcVersion
+    filesMatching('mcmod.info') {
+        expand modVersion: project.version, mcVersion: mcVersion
+    }
+}
+
+configurations {
+    javaFormatter
+}
+
+dependencies {
+    javaFormatter 'com.google.googlejavaformat:google-java-format:1.7'
+}
+
+task formatJava(type: JavaExec) {
+    description = 'Format Java sources with the pinned Google Java Format version.'
+    classpath = configurations.javaFormatter
+    main = 'com.google.googlejavaformat.java.Main'
+    args '--replace'
+    def sources = sourceSets.main.java
+    args sources.files.sort { a, b -> a.path <=> b.path }.collect { it.absolutePath }
+}
+
+jar {
+    manifest {
+        attributes 'FMLCorePlugin': 'org.spectatorlegacy.core.SpectatorCore',
+                   'FMLCorePluginContainsFMLMod': 'true'
+    }
+}
